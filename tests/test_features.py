@@ -26,4 +26,3 @@ def test_log1p_volume_keeps_zero_volume_row() -> None:
         features.loc[features["date"].eq(pd.Timestamp("2022-01-05")), "log1p_volume"].iloc[0],
         np.log(10.0),
     )
-

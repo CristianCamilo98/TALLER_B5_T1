@@ -31,4 +31,3 @@ def test_clean_snapshot_quality_is_certified() -> None:
     assert manifest["dropped_nan"] == 0
     assert len(clean) == 38_720
     assert clean.duplicated(["date", "ticker"]).sum() == 0
-

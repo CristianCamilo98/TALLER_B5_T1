@@ -24,5 +24,5 @@ Cada ventana estándar contiene 195 floats (`65×3`). `test_index` añade las 60
 fechas de contexto y las cinco fechas target explícitas; targets consecutivos
 no se solapan.
 
-Los antiguos `windows_65_stride{1,10,30,65}` no son canónicos y se archivaron
+Los artefactos **LEGACY** `windows_65_stride{1,10,30,65}` no son canónicos y se archivaron
 en `data/legacy_pre_realignment/`.

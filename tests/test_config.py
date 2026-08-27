@@ -29,4 +29,3 @@ def test_frozen_protocol_contract() -> None:
     assert config["downstream"]["model"] == "ridge"
     assert config["downstream"]["alpha"] == 1.0
     assert config["downstream"]["status"] == "contract_only_not_implemented"
-

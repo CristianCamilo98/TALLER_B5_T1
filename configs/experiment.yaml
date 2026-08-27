@@ -89,4 +89,3 @@ paths:
   test_index: "data/features/test_index.parquet"
   features_manifest: "data/features/features_manifest.json"
   window_report: "data/features/window_counts.csv"
-

@@ -3,7 +3,7 @@
   "protocol_version": "common-core-1.0.0",
   "built_at_utc": "2026-08-27T16:36:32.650279+00:00",
   "config_path": "configs/experiment.yaml",
-  "config_sha256": "efc8a032ddd1c9d9b528b839a595f2b5b348eb859c7b1257021ebeeec409fb9f",
+  "config_sha256": "7b105c539879e381e608c1d6f91d11e59c5832cd00c577994bb709e965dfa622",
   "input_snapshots": {
     "data/clean/ohlcv_clean.parquet": "2e9da1ab9f8f58521fdfbdcc91daf05bb8720e9a865bab3f359fd819a23ffdb2",
     "data/splits/daily_split_assignments.parquet": "b370d6eeaf2e1eefc7e968f999e715ca901c543e78d7653432ac1418e3d375a9"

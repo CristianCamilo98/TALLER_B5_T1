@@ -1,7 +1,7 @@
 # Common Core Certification — Synthetic NVDA
 
-Fecha de certificación: 2026-08-27  
-Protocolo: `common-core-1.0.0`  
+Fecha de certificación: 2026-08-27
+Protocolo: `common-core-1.0.0`
 Rama: `feature/common-protocol-realignment`
 
 ## Alcance
@@ -30,6 +30,37 @@ Ridge y cualquier evaluación downstream.
 La diferencia entre la fecha de inicio configurada y la primera feature de cada
 bloque se debe al retorno inicial indefinido. No se utiliza el cierre previo al
 corte para completarlo.
+
+## Canonical artifacts produced
+
+Los artefactos versionados conservan el contrato, los informes y la
+trazabilidad del snapshot. Los binarios y CSV voluminosos ignorados por Git son
+regenerables desde el snapshot raw local mediante los scripts canónicos.
+
+| Artefacto | Estado Git | Producción |
+|---|---|---|
+| `data/raw/download_manifest.json` | Versionado | `download_ohlcv_raw.py` |
+| `data/raw/ohlcv_raw.parquet` | Ignorado; snapshot raw local | `download_ohlcv_raw.py` |
+| `data/raw/ohlcv_raw.csv` | Ignorado; snapshot raw local | `download_ohlcv_raw.py` |
+| `data/raw/by_ticker/{NVDA,AMD,INTC,QCOM,AVGO,MU,TXN,ADI,MCHP,MRVL,NXPI}.parquet` | Ignorados; snapshot raw local | `download_ohlcv_raw.py` |
+| `data/clean/ohlcv_clean.parquet` | Ignorado; regenerable | `clean_ohlcv.py` |
+| `data/clean/ohlcv_clean.csv` | Ignorado; regenerable | `clean_ohlcv.py` |
+| `data/clean/clean_manifest.json` | Versionado | `clean_ohlcv.py` |
+| `data/clean/quality_report.csv` | Versionado | `clean_ohlcv.py` |
+| `data/clean/checksums.sha256` | Versionado | `clean_ohlcv.py` |
+| `data/splits/daily_split_assignments.parquet` | Ignorado; regenerable | `assign_splits.py` |
+| `data/splits/split_manifest.json` | Versionado | `assign_splits.py` |
+| `data/splits/daily_split_report.csv` | Versionado | `assign_splits.py` |
+| `data/splits/checksums.sha256` | Versionado | `assign_splits.py` |
+| `data/features/daily_features_by_split.parquet` | Ignorado; regenerable | `build_features_windows.py` |
+| `data/features/features_manifest.json` | Versionado | `build_features_windows.py` |
+| `data/features/window_counts.csv` | Versionado | `build_features_windows.py` |
+| `data/features/checksums.sha256` | Versionado | `build_features_windows.py` |
+| `data/features/windows/donor_train.parquet` | Ignorado; regenerable | `build_features_windows.py` |
+| `data/features/windows/donor_validation.parquet` | Ignorado; regenerable | `build_features_windows.py` |
+| `data/features/windows/nvda_visible.parquet` | Ignorado; regenerable | `build_features_windows.py` |
+| `data/features/windows/nvda_full_history.parquet` | Ignorado; regenerable | `build_features_windows.py` |
+| `data/features/test_index.parquet` | Ignorado; regenerable | `build_features_windows.py` |
 
 ## Pruebas
 
