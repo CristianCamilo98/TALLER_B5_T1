@@ -15,3 +15,6 @@ notebooks/figures/
 data/features/*json
 data/features/*csv
 data/features/*parquet
+data/splits/*json
+data/splits/*csv
+data/splits/*parquet
