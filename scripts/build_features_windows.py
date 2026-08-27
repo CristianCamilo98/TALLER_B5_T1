@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Features diarias generativas + ventanas T=65 (solo lectura de data/clean/).
+"""Features diarias generativas + ventanas T=65 multi-stride (solo lectura de data/clean/).
 
 Uso:
   .venv/bin/python scripts/build_features_windows.py
@@ -7,13 +7,17 @@ Uso:
 Entrada (no se modifica):
   data/clean/ohlcv_clean.parquet
 
-Salidas:
+Salidas (features-0.2.0):
   data/features/daily_features.parquet
   data/features/daily_features.csv
-  data/features/windows_65.parquet
+  data/features/windows_65_stride{1,10,30,65}.parquet
   data/features/features_manifest.json
   data/features/checksums.sha256
-  data/features/README.md  (mantener alineado con las reglas de este script)
+  data/features/README.md
+
+Menú de datasets para compañeros (VAE/GAN/Diffusion). primary_stride=1 es el
+DEFAULT RECOMENDADO comparable; los demás strides quedan disponibles.
+Entrenamiento de generadores y splits quedan fuera de este script.
 """
 
 from __future__ import annotations
@@ -29,7 +33,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 
-DATA_VERSION = "features-0.1.0"
+DATA_VERSION = "features-0.2.0"
 EXPECTED_INPUT_SHA256 = (
     "fb1d9e60853743fff8cf6a2b17fb7588915d4213022c75b7311f33944a974f25"
 )
@@ -38,13 +42,16 @@ INPUT_PARQUET = ROOT / "data" / "clean" / "ohlcv_clean.parquet"
 FEATURES_DIR = ROOT / "data" / "features"
 DAILY_PARQUET = FEATURES_DIR / "daily_features.parquet"
 DAILY_CSV = FEATURES_DIR / "daily_features.csv"
-WINDOWS_PARQUET = FEATURES_DIR / "windows_65.parquet"
 MANIFEST_PATH = FEATURES_DIR / "features_manifest.json"
 CHECKSUMS_PATH = FEATURES_DIR / "checksums.sha256"
 README_PATH = FEATURES_DIR / "README.md"
 
+# Legado 0.1.0 (un solo stride implícito) — no es canónico en 0.2.0
+LEGACY_WINDOWS = FEATURES_DIR / "windows_65.parquet"
+
 T = 65
-STRIDE = 1
+STRIDES = [1, 10, 30, 65]
+PRIMARY_STRIDE = 1
 CHANNEL_ORDER = ["log_return", "log_high_low_range", "log_volume"]
 N_CHANNELS = len(CHANNEL_ORDER)
 FLAT_LEN = T * N_CHANNELS  # 195
@@ -61,9 +68,14 @@ APPLIED_RULES = [
     "drop_first_row_per_ticker_missing_log_return",
     "drop_nan_inf_in_three_features",
     "no_ffill_no_winsorize_no_standardize",
-    "windows_T65_stride1_consecutive_feature_rows_single_ticker",
+    "windows_T65_multi_stride_consecutive_feature_rows_single_ticker",
+    "one_parquet_per_stride_no_mixed_stride_file",
     "channel_order_log_return_log_high_low_range_log_volume",
 ]
+
+
+def windows_path(stride: int) -> Path:
+    return FEATURES_DIR / f"windows_65_stride{stride}.parquet"
 
 
 def sha256_file(path: Path) -> str:
@@ -82,14 +94,15 @@ def normalize_date(series: pd.Series) -> pd.Series:
     return dt.dt.normalize()
 
 
-def build_daily_features(ohlcv: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
-    """Construye panel de features diario por ticker.
+def expected_n_windows(n_rows: int, stride: int, t: int = T) -> int:
+    """n_windows = floor((n_rows - T) / stride) + 1  si n_rows >= T; else 0."""
+    if n_rows < t:
+        return 0
+    return (n_rows - t) // stride + 1
 
-    Returns
-    -------
-    features : DataFrame con columnas FEATURE_COLS
-    stats : dict con conteos de drops
-    """
+
+def build_daily_features(ohlcv: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+    """Construye panel de features diario por ticker."""
     df = ohlcv.copy()
     df["date"] = normalize_date(df["date"])
     df["ticker"] = df["ticker"].astype(str)
@@ -131,12 +144,10 @@ def build_daily_features(ohlcv: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
             }
         )
 
-        # Primera fila sin log_return (shift) → fuera
         missing_return = feat["log_return"].isna()
         dropped_first_row += int(missing_return.sum())
         feat = feat.loc[~missing_return].copy()
 
-        # Drop NaN/inf en las 3 features
         vals = feat[CHANNEL_ORDER]
         bad = ~np.isfinite(vals.to_numpy(dtype=np.float64)).all(axis=1)
         dropped_nan_inf += int(bad.sum())
@@ -157,8 +168,8 @@ def build_daily_features(ohlcv: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     return features, stats
 
 
-def build_windows(features: pd.DataFrame) -> pd.DataFrame:
-    """Ventanas [T, 3] por ticker; stride=1 sobre filas consecutivas de features.
+def build_windows(features: pd.DataFrame, stride: int) -> pd.DataFrame:
+    """Ventanas [T, 3] por ticker; stride dado sobre filas consecutivas de features.
 
     Columna `features_flat`: lista de FLAT_LEN floats, row-major
     (t=0..T-1, canal en CHANNEL_ORDER). Reconstruir:
@@ -173,7 +184,7 @@ def build_windows(features: pd.DataFrame) -> pd.DataFrame:
             continue
         mat = g[CHANNEL_ORDER].to_numpy(dtype=np.float64)
         dates = g["date"].to_numpy()
-        for start in range(0, n - T + 1, STRIDE):
+        for start in range(0, n - T + 1, stride):
             end = start + T  # exclusive
             flat = mat[start:end].reshape(-1).tolist()
             records.append(
@@ -197,19 +208,48 @@ def build_windows(features: pd.DataFrame) -> pd.DataFrame:
     return windows
 
 
+def remove_legacy_artifacts() -> list[str]:
+    """Elimina el parquet canónico de 0.1.0 sin stride en el nombre."""
+    removed: list[str] = []
+    if LEGACY_WINDOWS.is_file():
+        LEGACY_WINDOWS.unlink()
+        removed.append(str(LEGACY_WINDOWS.relative_to(ROOT)))
+    return removed
+
+
 def write_readme() -> None:
-    text = f"""# Features diarias + ventanas T={T} (`{DATA_VERSION}`)
+    stride_rows = "\n".join(
+        f"| `{s}` | `data/features/windows_65_stride{s}.parquet` |"
+        + (" **← primary / default recomendado**" if s == PRIMARY_STRIDE else "")
+        for s in STRIDES
+    )
+    text = f"""# Features diarias + ventanas T={T} multi-stride (`{DATA_VERSION}`)
 
-Panel de features generativas diarias y ventanas de {T} días a partir de
-`data/clean/ohlcv_clean.parquet`. **Solo features + ventanas.**
+Panel de features generativas diarias y **menú de datasets de ventanas** (varios
+strides) a partir de `data/clean/ohlcv_clean.parquet`.
 
-Sin splits train/val/test, sin calibración a NVDA, sin estandarización, sin
-entrenamiento (VAE/GAN/Diffusion/Ridge). Sin re-limpieza ni escritura en
-`data/clean/`.
+**Solo features + ventanas.** Sin splits, sin calibración a NVDA, sin
+estandarización, sin entrenamiento (VAE/GAN/Diffusion/Ridge). Sin re-limpieza
+ni escritura en `data/clean/`.
+
+Este repo prepara datos comunes para que Marco (VAE), Cristian (GAN) y Dani
+(Diffusion) entrenen sintéticos **sin reconstruir el pipeline**. Cada uno elige
+más adelante qué stride(s) usar; este chat **no** decide el entrenamiento.
 
 > **Mantenimiento:** cualquier cambio en fórmulas o políticas debe actualizar
 > **este README** y `scripts/build_features_windows.py` (y regenerar artefactos +
 > `features_manifest.json`).
+
+## Canónico en 0.2.0 (vs legado 0.1.0)
+
+| Versión | Artefacto de ventanas |
+|---|---|
+| **0.2.0 (canónico)** | `windows_65_stride{{1,10,30,65}}.parquet` — **un fichero por stride** |
+| 0.1.0 (legado) | `windows_65.parquet` (stride=1 implícito) — **eliminado** en esta versión |
+
+No uses `windows_65.parquet`. No mezcles distintos strides en un mismo train
+sin acuerdo explícito del equipo (y sin columna `stride` si fuera un fichero único;
+aquí preferimos ficheros separados).
 
 ## Entrada (solo lectura)
 
@@ -230,23 +270,47 @@ Si el SHA del parquet de entrada no coincide, el script **aborta**.
 Reglas:
 
 - Independiente por ticker.
-- Filas `Volume == 0` se eliminan **antes** de calcular features (el `log_return`
-  siguiente usa el `Close` de la fila previa restante).
+- Filas `Volume == 0` se eliminan **antes** de calcular features.
 - Primera fila de cada ticker sin `log_return` → fuera.
 - Drop NaN/inf en las 3 features.
-- **No** ffill. **No** winsorize. **No** estandarizar (calibración NVDA = otro chat).
-- Huecos vs unión de fechas: las ventanas usan **filas consecutivas del panel de
+- **No** ffill. **No** winsorize. **No** estandarizar.
+- Huecos vs unión de fechas: ventanas sobre **filas consecutivas del panel de
   features**, no días de calendario rellenados.
 
-## Ventanas
+## Menú de ventanas (multi-stride)
 
 | Parámetro | Valor |
 |---|---|
 | `T` | {T} |
-| `stride` | {STRIDE} |
+| `strides` | `{STRIDES}` |
+| `primary_stride` | **{PRIMARY_STRIDE}** (DEFAULT RECOMENDADO para corrida oficial comparable) |
 | Canales (orden fijo) | `{CHANNEL_ORDER}` → shape `[{T}, 3]` |
 | Ámbito | un solo ticker por ventana |
 | Metadatos | `ticker`, `window_start_date`, `window_end_date` |
+
+### Qué significa el stride
+
+El stride es cuántas filas de features avanzas al crear la **siguiente** ventana.
+Con `T=65` y `stride=1`, las ventanas se solapan en 64 días. Con `stride=65`,
+son bloques disjuntos (sin solape).
+
+### Fórmula de conteo (por ticker y stride)
+
+Si un ticker tiene `n` filas de features:
+
+```
+n_windows(ticker, stride) = floor((n - T) / stride) + 1   si n >= T
+n_windows(ticker, stride) = 0                              si n < T
+```
+
+Total por stride = suma sobre tickers.
+
+### Ficheros del menú
+
+{stride_rows}
+
+`primary_stride={PRIMARY_STRIDE}` es solo el default recomendado comparable del
+equipo; los otros strides quedan disponibles para experimentos individuales.
 
 ## Ejecutar
 
@@ -261,16 +325,16 @@ cd taller_cristian
 |---|---|
 | `data/features/daily_features.parquet` | Features diarias |
 | `data/features/daily_features.csv` | Misma tabla en CSV |
-| `data/features/windows_65.parquet` | Ventanas + `features_flat` |
+| `data/features/windows_65_stride*.parquet` | Ventanas por stride + `features_flat` |
 | `data/features/features_manifest.json` | Metadatos, conteos, SHA, políticas |
-| `data/features/checksums.sha256` | SHA256 de parquet/csv de salida |
+| `data/features/checksums.sha256` | SHA256 de salidas |
 | `data/features/README.md` | Este documento |
 
 `data_version`: `{DATA_VERSION}`
 
 ## Reconstruir tensor `[65, 3]`
 
-En `windows_65.parquet`, la columna `features_flat` es una lista de
+En cada `windows_65_stride*.parquet`, la columna `features_flat` es una lista de
 `{FLAT_LEN}` floats en orden row-major: para cada `t` en `0..{T - 1}`, los
 canales `{CHANNEL_ORDER}`.
 
@@ -278,7 +342,7 @@ canales `{CHANNEL_ORDER}`.
 import numpy as np
 import pandas as pd
 
-w = pd.read_parquet("data/features/windows_65.parquet")
+w = pd.read_parquet("data/features/windows_65_stride1.parquet")  # o stride10/30/65
 row = w.iloc[0]
 X = np.asarray(row["features_flat"], dtype=np.float64).reshape({T}, {N_CHANNELS})
 # X.shape == ({T}, {N_CHANNELS}); X[:, 0] == log_return, etc.
@@ -300,9 +364,28 @@ f = pd.read_parquet("data/features/daily_features.parquet")
 ```
 
 Fuera de alcance: splits de experimento, calibración/estandarización a NVDA,
-entrenamiento de modelos.
+entrenamiento de modelos generativos.
 """
     README_PATH.write_text(text, encoding="utf-8")
+
+
+def verify_window_vs_daily(
+    features: pd.DataFrame, windows: pd.DataFrame, label: str
+) -> None:
+    """Comprueba que features_flat de una ventana coincide con el panel diario."""
+    if windows.empty:
+        raise RuntimeError(f"sanity {label}: windows vacío")
+    row = windows.iloc[0]
+    X = np.asarray(row["features_flat"], dtype=np.float64).reshape(T, N_CHANNELS)
+    t = row["ticker"]
+    start = row["window_start_date"]
+    g = features.loc[features["ticker"] == t].sort_values("date").reset_index(drop=True)
+    pos = int(g.index[g["date"] == start][0])
+    block = g.iloc[pos : pos + T][CHANNEL_ORDER].to_numpy(dtype=np.float64)
+    if not np.allclose(block, X):
+        raise RuntimeError(f"sanity {label}: mismatch reshape vs daily")
+    if row["window_end_date"] != g.iloc[pos + T - 1]["date"]:
+        raise RuntimeError(f"sanity {label}: window_end_date mismatch")
 
 
 def main() -> int:
@@ -334,55 +417,95 @@ def main() -> int:
         print("FALLO: panel de features vacío.", file=sys.stderr)
         return 1
 
-    # Sanity checks (mínimos; EDA larga queda en 02c)
     n_inf = int((~np.isfinite(features[CHANNEL_ORDER].to_numpy())).sum())
     if n_inf != 0:
         print(f"FALLO: quedan no-finitos en features: {n_inf}", file=sys.stderr)
         return 1
 
-    windows = build_windows(features)
-    n_windows = int(len(windows))
-    if n_windows == 0:
-        print("FALLO: 0 ventanas generadas.", file=sys.stderr)
-        return 1
-
-    # Validar longitud flat
-    lens = windows["features_flat"].map(len)
-    if not (lens == FLAT_LEN).all():
-        print("FALLO: features_flat con longitud distinta de 195.", file=sys.stderr)
-        return 1
+    n_features_by_ticker = {
+        t: int(n) for t, n in features.groupby("ticker").size().sort_index().items()
+    }
 
     FEATURES_DIR.mkdir(parents=True, exist_ok=True)
+    removed_legacy = remove_legacy_artifacts()
+
     features.to_parquet(DAILY_PARQUET, index=False)
     features.to_csv(DAILY_CSV, index=False)
-    windows.to_parquet(WINDOWS_PARQUET, index=False)
+
+    windows_by_stride: dict[int, pd.DataFrame] = {}
+    n_windows_total: dict[str, int] = {}
+    n_windows_by_ticker: dict[str, dict[str, int]] = {}
+    count_checks: dict[str, bool] = {}
+
+    for stride in STRIDES:
+        w = build_windows(features, stride=stride)
+        if w.empty:
+            print(f"FALLO: 0 ventanas para stride={stride}", file=sys.stderr)
+            return 1
+        lens = w["features_flat"].map(len)
+        if not (lens == FLAT_LEN).all():
+            print(f"FALLO: features_flat len != {FLAT_LEN} (stride={stride})", file=sys.stderr)
+            return 1
+        flat_arr = np.vstack(
+            [np.asarray(x, dtype=np.float64) for x in w["features_flat"]]
+        )
+        if not np.isfinite(flat_arr).all():
+            print(f"FALLO: NaN/inf en ventanas stride={stride}", file=sys.stderr)
+            return 1
+
+        by_t = {t: int(n) for t, n in w.groupby("ticker").size().sort_index().items()}
+        for t in n_features_by_ticker:
+            by_t.setdefault(t, 0)
+        # Fórmula de conteo
+        expected_total = sum(
+            expected_n_windows(n_features_by_ticker[t], stride) for t in n_features_by_ticker
+        )
+        ok_count = int(len(w)) == expected_total and all(
+            by_t[t] == expected_n_windows(n_features_by_ticker[t], stride)
+            for t in n_features_by_ticker
+        )
+        if not ok_count:
+            print(f"FALLO: conteo ventanas != fórmula (stride={stride})", file=sys.stderr)
+            return 1
+
+        out = windows_path(stride)
+        w.to_parquet(out, index=False)
+        windows_by_stride[stride] = w
+        key = f"stride{stride}"
+        n_windows_total[key] = int(len(w))
+        n_windows_by_ticker[key] = by_t
+        count_checks[key] = ok_count
+
+    # Sanity reshape ↔ daily: stride=1 y un ejemplo stride=65
+    try:
+        verify_window_vs_daily(features, windows_by_stride[1], "stride1")
+        verify_window_vs_daily(features, windows_by_stride[65], "stride65")
+        # También última ventana de stride=65 (bloques disjuntos)
+        w65 = windows_by_stride[65]
+        verify_window_vs_daily(features, w65.iloc[[-1]].reset_index(drop=True), "stride65_last")
+    except RuntimeError as exc:
+        print(f"FALLO: {exc}", file=sys.stderr)
+        return 1
+
     write_readme()
 
     daily_parquet_sha = sha256_file(DAILY_PARQUET)
     daily_csv_sha = sha256_file(DAILY_CSV)
-    windows_sha = sha256_file(WINDOWS_PARQUET)
     readme_sha = sha256_file(README_PATH)
+    windows_shas = {s: sha256_file(windows_path(s)) for s in STRIDES}
 
-    checksums = {
+    checksums: dict[str, str] = {
         str(DAILY_PARQUET.relative_to(ROOT)): daily_parquet_sha,
         str(DAILY_CSV.relative_to(ROOT)): daily_csv_sha,
-        str(WINDOWS_PARQUET.relative_to(ROOT)): windows_sha,
-        str(README_PATH.relative_to(ROOT)): readme_sha,
     }
+    for s in STRIDES:
+        checksums[str(windows_path(s).relative_to(ROOT))] = windows_shas[s]
+    checksums[str(README_PATH.relative_to(ROOT))] = readme_sha
+
     CHECKSUMS_PATH.write_text(
         "\n".join(f"{digest}  {rel}" for rel, digest in checksums.items()) + "\n",
         encoding="utf-8",
     )
-
-    n_features_by_ticker = {
-        t: int(n) for t, n in features.groupby("ticker").size().sort_index().items()
-    }
-    n_windows_by_ticker = {
-        t: int(n) for t, n in windows.groupby("ticker").size().sort_index().items()
-    }
-    # Tickers sin ventanas (n < T) aparecen con 0
-    for t in n_features_by_ticker:
-        n_windows_by_ticker.setdefault(t, 0)
 
     date_min = str(features["date"].min().date())
     date_max = str(features["date"].max().date())
@@ -406,23 +529,28 @@ def main() -> int:
                 "(not calendar-filled days)"
             ),
             "winsorize": "NO",
-            "standardize_or_nvda_calibration": "NO (out of scope for this chat)",
+            "standardize_or_nvda_calibration": "NO (out of scope)",
             "heteroscedasticity_outliers": (
-                "documented only; strong cross-ticker scale differences expected "
-                "in log_volume / ranges; no winsorization in this version"
+                "documented only; no winsorization in this version"
+            ),
+            "mixed_strides_in_one_train": (
+                "NO without team agreement; one parquet per stride is canonical"
             ),
         },
         "rules_applied": APPLIED_RULES,
         "rows_in_clean": rows_in,
         "n_features_rows": n_features,
         "n_features_rows_by_ticker": n_features_by_ticker,
-        "n_windows": n_windows,
-        "n_windows_by_ticker": n_windows_by_ticker,
         "date_min_features": date_min,
         "date_max_features": date_max,
         "window_params": {
             "T": T,
-            "stride": STRIDE,
+            "strides": STRIDES,
+            "primary_stride": PRIMARY_STRIDE,
+            "primary_stride_note": (
+                "DEFAULT RECOMENDADO for the team's official comparable run; "
+                "other strides remain available as a menu"
+            ),
             "channel_order": CHANNEL_ORDER,
             "tensor_shape": [T, N_CHANNELS],
             "features_flat_length": FLAT_LEN,
@@ -430,12 +558,21 @@ def main() -> int:
                 "row-major: for t in 0..T-1, channels in channel_order; "
                 f"reshape({T}, {N_CHANNELS})"
             ),
+            "n_windows_formula": (
+                "per ticker: floor((n_rows - T) / stride) + 1 if n_rows >= T else 0; "
+                "total = sum over tickers"
+            ),
         },
+        "n_windows_total_by_stride": n_windows_total,
+        "n_windows_by_ticker_by_stride": n_windows_by_ticker,
         "dropped": drop_stats,
         "sanity_checks": {
             "n_nonfinite_in_features": n_inf,
-            "n_windows_flat_len_ok": bool((lens == FLAT_LEN).all()),
+            "count_formula_ok_by_stride": count_checks,
+            "reshape_vs_daily_stride1": True,
+            "reshape_vs_daily_stride65": True,
         },
+        "legacy_removed": removed_legacy,
         "schema": {
             "daily_features_columns": FEATURE_COLS,
             "windows_columns": [
@@ -448,21 +585,26 @@ def main() -> int:
         "output_paths": {
             "daily_features_parquet": str(DAILY_PARQUET.relative_to(ROOT)),
             "daily_features_csv": str(DAILY_CSV.relative_to(ROOT)),
-            "windows_parquet": str(WINDOWS_PARQUET.relative_to(ROOT)),
+            "windows_by_stride": {
+                f"stride{s}": str(windows_path(s).relative_to(ROOT)) for s in STRIDES
+            },
             "manifest": str(MANIFEST_PATH.relative_to(ROOT)),
             "checksums": str(CHECKSUMS_PATH.relative_to(ROOT)),
             "readme": str(README_PATH.relative_to(ROOT)),
         },
         "checksums_sha256": checksums,
         "notes": [
-            "Splits train/val/test y protocolo de experimento quedan fuera de este chat.",
-            "Calibración/estandarización a NVDA queda fuera de este chat.",
+            "Menú de datasets multi-stride para compañeros (VAE/GAN/Diffusion); "
+            "entrenamiento generativo fuera de este chat.",
+            "primary_stride=1 es DEFAULT RECOMENDADO comparable; no obliga a usarlo.",
+            "No mezclar strides en un mismo train sin acuerdo del equipo.",
+            "Splits train/val/test y calibración NVDA fuera de este chat.",
             "No se modifica data/clean/.",
             (
                 "1 fila Volume==0 dropeada (AMD 2015-01-02) si aplica; "
                 f"contado dropped_volume_eq_0={drop_stats['dropped_volume_eq_0']}."
             ),
-            "Heterocedasticidad/outliers entre tickers: solo documentados; sin winsorize.",
+            "Canónico 0.2.0: windows_65_stride*.parquet; legado windows_65.parquet eliminado.",
         ],
     }
     MANIFEST_PATH.write_text(
@@ -470,18 +612,17 @@ def main() -> int:
         encoding="utf-8",
     )
 
-    # checksums no incluye el manifest a propósito (circular); documentado en README
-    print("OK — features + ventanas")
+    print("OK — features + ventanas multi-stride")
+    print(f"  data_version:     {DATA_VERSION}")
     print(f"  input sha256:     {input_sha}")
-    print(f"  rows_clean:       {rows_in}")
-    print(f"  dropped Vol==0:   {drop_stats['dropped_volume_eq_0']}")
+    print(f"  primary_stride:   {PRIMARY_STRIDE}")
     print(f"  n_features_rows:  {n_features}")
-    print(f"  n_windows:        {n_windows}")
-    print(f"  date range:       {date_min} → {date_max}")
-    print(f"  daily parquet:    {DAILY_PARQUET}")
-    print(f"  windows parquet:  {WINDOWS_PARQUET}")
+    for s in STRIDES:
+        print(f"  n_windows s={s:<2}:   {n_windows_total[f'stride{s}']}")
+    print(f"  legacy removed:   {removed_legacy or '(none)'}")
     print(f"  daily sha256:     {daily_parquet_sha}")
-    print(f"  windows sha256:   {windows_sha}")
+    for s in STRIDES:
+        print(f"  windows s={s} sha: {windows_shas[s]}")
     return 0
 
 
