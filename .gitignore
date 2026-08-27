@@ -11,3 +11,4 @@ data/raw/*.parquet
 data/clean/*.json
 data/clean/*.csv
 data/clean/*.parquet
+notebooks/figures/
