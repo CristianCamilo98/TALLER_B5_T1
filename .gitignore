@@ -8,3 +8,6 @@ data/raw/by_ticker/*
 data/raw/*.json
 data/raw/*.csv
 data/raw/*.parquet
+data/clean/*.json
+data/clean/*.csv
+data/clean/*.parquet
