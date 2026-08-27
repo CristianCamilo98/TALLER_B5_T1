@@ -5,7 +5,7 @@ Notebook **explicativo / de inspección** de los artefactos `features-0.2.0`.
 
 ## Cómo ejecutarlo
 
-Desde la raíz del repo (`taller_cristian/`):
+Desde la raíz del repo (`TALLER_B5_T1/`):
 
 ```bash
 uv pip install --python .venv/bin/python -r requirements.txt matplotlib ipykernel
