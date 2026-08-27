@@ -12,3 +12,6 @@ data/clean/*.json
 data/clean/*.csv
 data/clean/*.parquet
 notebooks/figures/
+data/features/*json
+data/features/*csv
+data/features/*parquet
