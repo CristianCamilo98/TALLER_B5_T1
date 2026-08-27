@@ -51,7 +51,7 @@ Reglas:
 ## Ejecutar
 
 ```bash
-cd taller_cristian
+cd TALLER_B5_T1
 .venv/bin/python scripts/build_features_windows.py
 ```
 

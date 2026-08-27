@@ -21,7 +21,7 @@ Parámetros de universo/calendario: [`configs/data_contract.yaml`](../../configs
 ## Entorno
 
 ```bash
-cd taller_cristian
+cd TALLER_B5_T1
 # opción A: uv
 uv venv .venv
 uv pip install -r requirements.txt --python .venv/bin/python

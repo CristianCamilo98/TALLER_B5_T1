@@ -6,7 +6,7 @@ Playground interactivo sobre **OHLCV ya limpio**. Sirve para entender la natural
 
 ## Cómo ejecutarlo
 
-Desde la raíz del repo (`taller_cristian/`):
+Desde la raíz del repo (`TALLER_B5_T1/`):
 
 ```bash
 # Dependencias base + kernel

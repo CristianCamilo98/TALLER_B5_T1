@@ -4,7 +4,7 @@ Diagnóstico interactivo **raw vs clean**. No regenera `data/clean/`; solo lectu
 
 ## Cómo ejecutarlo
 
-Desde la raíz del repo (`taller_cristian/`):
+Desde la raíz del repo (`TALLER_B5_T1/`):
 
 ```bash
 # Dependencias base + visualización del notebook

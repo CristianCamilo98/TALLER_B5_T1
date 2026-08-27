@@ -48,7 +48,7 @@ Formato long: una fila = un ticker × un día de sesión.
 ## Ejecutar
 
 ```bash
-cd taller_cristian
+cd TALLER_B5_T1
 .venv/bin/python scripts/clean_ohlcv.py
 ```
 
