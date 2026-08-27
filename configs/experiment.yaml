@@ -1,0 +1,92 @@
+experiment:
+  name: synthetic_nvda_common_core
+  protocol_version: "common-core-1.0.0"
+
+source:
+  provider: yfinance
+  interval: "1d"
+  auto_adjust: true
+  download_start: "2012-01-03"
+  download_end_inclusive: "2025-12-31"
+
+universe:
+  target: NVDA
+  donors:
+    - AMD
+    - INTC
+    - QCOM
+    - AVGO
+    - MU
+    - TXN
+    - ADI
+    - MCHP
+    - MRVL
+    - NXPI
+
+dates:
+  donor_train_start: "2012-01-03"
+  donor_train_end: "2021-12-31"
+  donor_validation_start: "2022-01-03"
+  donor_validation_end: "2022-12-30"
+  target_visible_start: "2022-07-01"
+  target_visible_end: "2022-12-30"
+  target_hidden_start: "2012-01-03"
+  target_hidden_end: "2022-06-30"
+  target_test_start: "2023-01-03"
+  target_test_end: "2025-12-31"
+
+cleaning:
+  drop_rows_with_nan_ohlc: true
+  min_ticker_coverage: 0.95
+  no_price_ffill: true
+  ohlc_tolerance:
+    absolute: 1.0e-10
+    relative: 1.0e-12
+
+features:
+  channels:
+    - log_return
+    - log_high_low_range
+    - log1p_volume
+  log_return: "ln(Close_t / Close_t_minus_1)"
+  log_high_low_range: "ln(High_t / Low_t)"
+  log1p_volume: "ln(1 + Volume_t)"
+
+windows:
+  length: 65
+  context: 60
+  horizon: 5
+  strides:
+    donor_train: 5
+    donor_validation: 5
+    target_visible: 1
+    target_full_history: 1
+    target_test: 5
+
+synthetic_experiment:
+  seeds: [42, 123, 2026]
+  ratios: [0.25, 0.50, 0.75]
+
+downstream:
+  model: ridge
+  alpha: 1.0
+  fit_intercept: true
+  status: "contract_only_not_implemented"
+
+paths:
+  raw_panel: "data/raw/ohlcv_raw.parquet"
+  raw_csv: "data/raw/ohlcv_raw.csv"
+  raw_manifest: "data/raw/download_manifest.json"
+  clean_panel: "data/clean/ohlcv_clean.parquet"
+  clean_csv: "data/clean/ohlcv_clean.csv"
+  clean_manifest: "data/clean/clean_manifest.json"
+  clean_quality_report: "data/clean/quality_report.csv"
+  daily_splits: "data/splits/daily_split_assignments.parquet"
+  split_manifest: "data/splits/split_manifest.json"
+  split_report: "data/splits/daily_split_report.csv"
+  daily_features: "data/features/daily_features_by_split.parquet"
+  windows_dir: "data/features/windows"
+  test_index: "data/features/test_index.parquet"
+  features_manifest: "data/features/features_manifest.json"
+  window_report: "data/features/window_counts.csv"
+

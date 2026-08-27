@@ -1,0 +1,7 @@
+split,n_rows,date_min,date_max,n_tickers
+donor_train,25170,2012-01-03,2021-12-31,10
+donor_validation,2510,2022-01-03,2022-12-30,10
+nvda_hidden,2641,2012-01-03,2022-06-30,1
+nvda_visible,127,2022-07-01,2022-12-30,1
+nvda_test,752,2023-01-03,2025-12-31,1
+unused,7520,2023-01-03,2025-12-31,10

@@ -1,5 +1,7 @@
 # Notebook 03b — Inspección de features y ventanas multi-stride (`features-0.2.0`)
 
+> **LEGACY / NO EJECUTAR:** referencia artefactos globales retirados del pipeline canónico.
+
 Notebook **explicativo / de inspección** de los artefactos `features-0.2.0`.
 **Solo lectura.** No regenera `data/features/`, no recalcula features, no hace splits ni modelos.
 

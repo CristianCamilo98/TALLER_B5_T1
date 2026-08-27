@@ -1,5 +1,7 @@
 # Notebook 04b — Inspección de splits temporales (`splits-0.1.0`)
 
+> **LEGACY / NO EJECUTAR:** referencia la asignación post-ventana retirada por leakage.
+
 Notebook **explicativo / de inspección** de los artefactos `splits-0.1.0`.
 **Solo lectura.** No reasigna splits, no escribe `data/splits/` nuevos, no entrena,
 no genera sintéticos. No muta `data/features/` ni `data/clean/`.

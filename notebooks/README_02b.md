@@ -1,5 +1,7 @@
 # Notebook 02b — Auditoría de limpieza OHLCV
 
+> **LEGACY SNAPSHOT:** previo a `common-core-1.0.0`; no es evidencia de certificación.
+
 Diagnóstico interactivo **raw vs clean**. No regenera `data/clean/`; solo lectura.
 
 ## Cómo ejecutarlo

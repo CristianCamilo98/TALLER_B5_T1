@@ -1,0 +1,90 @@
+{
+  "data_version": "features-windows-1.0.0",
+  "protocol_version": "common-core-1.0.0",
+  "built_at_utc": "2026-08-27T16:36:32.650279+00:00",
+  "config_path": "configs/experiment.yaml",
+  "config_sha256": "efc8a032ddd1c9d9b528b839a595f2b5b348eb859c7b1257021ebeeec409fb9f",
+  "input_snapshots": {
+    "data/clean/ohlcv_clean.parquet": "2e9da1ab9f8f58521fdfbdcc91daf05bb8720e9a865bab3f359fd819a23ffdb2",
+    "data/splits/daily_split_assignments.parquet": "b370d6eeaf2e1eefc7e968f999e715ca901c543e78d7653432ac1418e3d375a9"
+  },
+  "pipeline_order": [
+    "clean_daily_ohlcv",
+    "daily_split_assignments",
+    "features_within_each_block",
+    "windows_within_each_block"
+  ],
+  "channels": [
+    "log_return",
+    "log_high_low_range",
+    "log1p_volume"
+  ],
+  "formulas": {
+    "log_return": "ln(Close_t / Close_t_minus_1)",
+    "log_high_low_range": "ln(High_t / Low_t)",
+    "log1p_volume": "ln(1 + Volume_t)"
+  },
+  "window_length": 65,
+  "context": 60,
+  "horizon": 5,
+  "strides": {
+    "donor_train": 5,
+    "donor_validation": 5,
+    "nvda_visible": 1,
+    "nvda_full_history": 1,
+    "nvda_test": 5
+  },
+  "daily_feature_counts": {
+    "donor_train": 25160,
+    "donor_validation": 2500,
+    "nvda_visible": 126,
+    "nvda_full_history": 2767,
+    "nvda_test_source": 878
+  },
+  "window_counts": {
+    "donor_train": 4910,
+    "donor_validation": 380,
+    "nvda_visible": 62,
+    "nvda_full_history": 2703,
+    "nvda_test": 150
+  },
+  "test_index": {
+    "n_rows": 150,
+    "target_date_min": "2023-01-03",
+    "target_date_max": "2025-12-29",
+    "targets_non_overlapping": true,
+    "all_targets_have_horizon_rows": true,
+    "all_targets_inside_test": true
+  },
+  "boundary_evidence": {
+    "donor_train": [
+      "2012-01-03",
+      "2021-12-31"
+    ],
+    "donor_validation": [
+      "2022-01-03",
+      "2022-12-30"
+    ],
+    "nvda_visible": [
+      "2022-07-01",
+      "2022-12-30"
+    ],
+    "nvda_full_history": [
+      "2012-01-03",
+      "2022-12-30"
+    ],
+    "nvda_test_targets": [
+      "2023-01-03",
+      "2025-12-31"
+    ]
+  },
+  "checksums_sha256": {
+    "data/features/daily_features_by_split.parquet": "6cc2d5c7c1490e03e34b3b7dbf5fb49ce0c71d8a00fd81da6f2e38e2d8c3419e",
+    "data/features/windows/donor_train.parquet": "5f1e33f69b02bad86d89dcc2f67a1018cef68aaeacfbf72c310a1b7902fc268f",
+    "data/features/windows/donor_validation.parquet": "134f51a2ac9e546bf1a2f21f4efbf56a62bf019a08de14209058563b0a88ae23",
+    "data/features/windows/nvda_visible.parquet": "0e6f046313b56b046d2e5f19d5cf0b7b8e0b81060a04620c2f5bb6a7b245f6d3",
+    "data/features/windows/nvda_full_history.parquet": "19f651da100e6a304dda77831448d50a015e6eff5b9e019f6b3b2ffc6e908617",
+    "data/features/test_index.parquet": "64fe6f4c316d3746a6c28b233a3d4dddee587851163537bab79f1400a89be2c0",
+    "data/features/window_counts.csv": "bf2abcfc6b9fc5fa6fba1d6729c7a823e85df6494d1997997a44fc4806bf6ba1"
+  }
+}

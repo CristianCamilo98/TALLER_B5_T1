@@ -1,220 +1,104 @@
-# Taller B5-T1 — Datos compartidos (prep. pre-sintéticos)
+# Taller B5-T1 — Synthetic NVDA Common Core
 
-Pipeline común de **preparación de datos** para el taller de generación de datos financieros sintéticos.
+Common core certificado para el experimento de ampliación sintética de NVDA.
+Esta rama contiene exclusivamente configuración, descarga, limpieza, splits
+diarios, features, ventanas y pruebas anti-leakage. **No implementa todavía**
+VAE, WGAN-GP, Diffusion, Gaussian Noise, Ridge ni evaluación downstream.
 
-Este repo deja listos paneles, features, ventanas y splits para que cada integrante se centre en su **modelo generativo**, sin reconstruir la base de datos.
+La única fuente de verdad metodológica es
+[`configs/experiment.yaml`](configs/experiment.yaml).
 
-
-| Persona  | Modelo generativo |
-| -------- | ----------------- |
-| Marco    | VAE               |
-| Cristian | GAN               |
-| Dani     | Diffusion         |
-| David    | TBD               |
-
-
-**Estado actual:** preparación de datos **antes** de sintéticos = **cerrada** (`raw` → `clean` → `features-0.2.0` → `splits-0.1.0`).
-
-Enunciado: `[Taller_B5_T1.pdf](Taller_B5_T1.pdf)`.
-
----
-
-
-
-## Pipeline por bloques
+## Orden obligatorio del pipeline
 
 ```text
-configs/data_contract.yaml
+configs/experiment.yaml
         │
         ▼
-[1] Descarga          scripts/download_ohlcv_raw.py
-        │               → data/raw/                 (raw-0.1.0)
+1. download_ohlcv_raw.py       snapshot OHLCV + manifest
+        │
         ▼
-[2] Limpieza          scripts/clean_ohlcv.py
-        │               → data/clean/               (clean-0.1.0)
+2. clean_ohlcv.py              tolerancia OHLC + quality report
+        │
         ▼
-[3] Features+ventanas scripts/build_features_windows.py
-        │               → data/features/            (features-0.2.0)
-        │                 daily_features + windows_65_stride{1,10,30,65}
+3. assign_splits.py            asignación temporal a NIVEL DIARIO
+        │
         ▼
-[4] Splits            scripts/assign_splits.py
-                        → data/splits/              (splits-0.1.0)
-                          window_splits_stride{1,10,30,65}
+4. build_features_windows.py   features DENTRO de cada bloque
+                                y después ventanas con stride oficial
+        │
+        ▼
+5. pytest                      certificación de fronteras y leakage
 ```
 
-Cada bloque:
+Está prohibido construir ventanas globales y etiquetarlas posteriormente por
+`window_end_date`.
 
-- tiene **script canónico** (reproduce el artefacto),
-- escribe **manifest + checksums SHA256**,
-- documenta reglas en su `data/<bloque>/README.md`,
-- no debe mutar salidas de bloques anteriores (solo lectura aguas arriba).
+## Contrato congelado
 
+| Elemento | Valor |
+|---|---|
+| Target | NVDA |
+| Donors | AMD, INTC, QCOM, AVGO, MU, TXN, ADI, MCHP, MRVL, NXPI |
+| Donor train | 2012-01-03..2021-12-31, stride 5 |
+| Donor validation | 2022-01-03..2022-12-30, stride 5 |
+| NVDA visible | 2022-07-01..2022-12-30, stride 1 |
+| Full-history benchmark | 2012-01-03..2022-12-30, stride 1 |
+| Test targets | 2023-01-03..2025-12-31, context 60, horizon 5, stride 5 |
+| Canales | log_return, log_high_low_range, log1p_volume |
+| Ventana | 65 × 3 |
+| Seeds futuras | 42, 123, 2026 |
+| Ratios futuros | 25 %, 50 %, 75 % |
+| Downstream futuro | Ridge alpha=1.0; contrato únicamente, no implementado |
 
+## Recuentos del snapshot certificado
 
-### Notebooks de inspección (no regeneran datos)
+| Split | Ventanas | Stride |
+|---|---:|---:|
+| donor_train | 4.910 | 5 |
+| donor_validation | 380 | 5 |
+| nvda_visible | 62 | 1 |
+| nvda_full_history | 2.703 | 1 |
+| nvda_test (`test_index`) | 150 | 5 |
 
+Los 150 targets de test contienen exactamente cinco sesiones, no se solapan y
+están íntegramente dentro de 2023-01-03..2025-12-31.
 
-| Notebook                                                                                       | Qué explica                       |
-| ---------------------------------------------------------------------------------------------- | --------------------------------- |
-| `[notebooks/02b_audit_cleaning.ipynb](notebooks/02b_audit_cleaning.ipynb)`                     | Auditoría raw vs clean            |
-| `[notebooks/02c_eda_clean_panel.ipynb](notebooks/02c_eda_clean_panel.ipynb)`                   | EDA del panel limpio (playground) |
-| `[notebooks/03b_inspect_features_windows.ipynb](notebooks/03b_inspect_features_windows.ipynb)` | Features + menú multi-stride      |
-| `[notebooks/04b_inspect_splits.ipynb](notebooks/04b_inspect_splits.ipynb)`                     | Splits temporales                 |
+## Artefactos canónicos
 
+| Etapa | Artefactos |
+|---|---|
+| Raw | `data/raw/ohlcv_raw.*`, `download_manifest.json` |
+| Clean | `data/clean/ohlcv_clean.*`, `quality_report.csv`, manifest/checksums |
+| Split diario | `data/splits/daily_split_assignments.parquet`, reporte/manifest/checksums |
+| Features | `data/features/daily_features_by_split.parquet` |
+| Ventanas | `data/features/windows/{split}.parquet` |
+| Test común | `data/features/test_index.parquet` |
+| Certificación | `COMMON_CORE_CERTIFICATION.md`, `tests/` |
 
-Cómo abrir cada uno: `notebooks/README_02b.md`, `README_02c.md`, `README_03b.md`, `README_04b.md`.
+Los artefactos globales pre-realineación se conservan localmente, fuera del
+pipeline canónico, en `data/legacy_pre_realignment/`.
 
----
-
-
-
-## Estructura del repositorio
-
-```text
-taller_cristian/
-├── README.md                 ← este fichero (mapa global)
-├── Taller_B5_T1.pdf
-├── requirements.txt
-├── configs/
-│   └── data_contract.yaml    ← universo / fechas descarga
-├── scripts/
-│   ├── download_ohlcv_raw.py
-│   ├── clean_ohlcv.py
-│   ├── build_features_windows.py
-│   └── assign_splits.py
-├── data/
-│   ├── raw/                  + README.md, manifest, checksums
-│   ├── clean/                + README.md, manifest, checksums
-│   ├── features/             + README.md, manifest, checksums
-│   └── splits/               + README.md, manifest, checksums
-└── notebooks/
-    ├── 02b_… 03b_… 04b_… 02c_…
-    ├── README_0xb.md
-    └── figures/              (opcionales, p.ej. EDA 02c)
-```
-
----
-
-
-
-## Cómo usar los datos (handoff generadores)
-
-**Recomendado para la corrida oficial comparable entre VAE/GAN/Diffusion:**
-
-
-| Pieza                            | Ruta                                        |
-| -------------------------------- | ------------------------------------------- |
-| Ventanas                         | `data/features/windows_65_stride1.parquet`  |
-| Splits                           | `data/splits/window_splits_stride1.parquet` |
-| Features diarias (si hace falta) | `data/features/daily_features.parquet`      |
-
-
-Protocolo:
-
-1. Elige **un** stride y usa el **mismo** en features y splits. No mezcles strides en un mismo train sin acuerdo del equipo.
-2. Join ventanas ↔ splits (p. ej. vía `window_row` 0..n-1 alineado, como en el notebook 04b).
-3. Entrena el generador solo con `split == donor_train`.
-4. Checkpoint / early stop con `donor_val` (donors 2022; **sin NVDA**).
-5. **No** uses `nvda_test` para tunear.
-6. `nvda_visible` y calibración / mixes = fase posterior.
-7. `unused` no entra en el protocolo oficial (es grande a propósito).
-
-Menú de strides disponibles: `1`, `10`, `30`, `65`.  
-`primary_stride=1` = default recomendado (más muestra). Strides altos dejan muy pocas ventanas `nvda_visible` (p. ej. stride 65 → solo 2).
-
-Forma de una ventana: `[65, 3]` con canales  
-`[log_return, log_high_low_range, log_volume]`  
-(ver `data/features/README.md` y `features_manifest.json`).
-
-Detalle de splits y fechas: `[data/splits/README.md](data/splits/README.md)`.
-
----
-
-
-
-## Entorno
+## Ejecutar sin volver a descargar
 
 ```bash
-cd TALLER_B5_T1
-uv venv .venv
-uv pip install -r requirements.txt --python .venv/bin/python
-# o: python -m venv .venv && .venv/bin/pip install -r requirements.txt
+python scripts/download_ohlcv_raw.py --config configs/experiment.yaml --reuse-snapshot
+python scripts/clean_ohlcv.py --config configs/experiment.yaml
+python scripts/assign_splits.py --config configs/experiment.yaml
+python scripts/build_features_windows.py --config configs/experiment.yaml
+python -m pytest -q
 ```
 
-Regenerar un bloque (solo si cambias reglas; ver sección siguiente):
+Omitir `--reuse-snapshot` realiza una descarga nueva de yfinance.
 
-```bash
-.venv/bin/python scripts/download_ohlcv_raw.py      # → data/raw/
-.venv/bin/python scripts/clean_ohlcv.py             # → data/clean/
-.venv/bin/python scripts/build_features_windows.py  # → data/features/
-.venv/bin/python scripts/assign_splits.py           # → data/splits/
-```
+## Política de checksums
 
-Los scripts de bloques 2–4 **verifican SHA** de su entrada y abortan si no coincide (no “arreglan” re-descargando).
+Los SHA256 certifican el snapshot observado por cada manifest. Cada etapa
+verifica que su entrada coincide con el manifest inmediatamente anterior. Los
+scripts no contienen hashes metodológicos hardcodeados y una descarga futura
+válida puede producir un SHA diferente: al regenerar la cadena se genera un
+nuevo linaje de manifests.
 
----
+## Estado
 
-
-
-## Documentación por bloque (fuente de verdad local)
-
-
-| Bloque              | README de detalle                                    | Script                              | Versión          |
-| ------------------- | ---------------------------------------------------- | ----------------------------------- | ---------------- |
-| Descarga            | `[data/raw/README.md](data/raw/README.md)`           | `scripts/download_ohlcv_raw.py`     | `raw-0.1.0`      |
-| Limpieza            | `[data/clean/README.md](data/clean/README.md)`       | `scripts/clean_ohlcv.py`            | `clean-0.1.0`    |
-| Features / ventanas | `[data/features/README.md](data/features/README.md)` | `scripts/build_features_windows.py` | `features-0.2.0` |
-| Splits              | `[data/splits/README.md](data/splits/README.md)`     | `scripts/assign_splits.py`          | `splits-0.1.0`   |
-
-
-Este `README.md` raíz = **mapa**. Las reglas exactas (fórmulas, drops, fechas de split) viven en el README + manifest de cada bloque.
-
----
-
-
-
-## Si quieres cambiar el pipeline con IA (o a mano)
-
-
-
-### Principios
-
-1. **Un bloque por cambio.** No pidas “arregla features y splits y limpia” en el mismo chat.
-2. **Lee antes el README del bloque** que vas a tocar (`data/<bloque>/README.md`) y el script asociado.
-3. **Aguas abajo se invalidan.** Si cambias `clean`, debes regenerar `features` y luego `splits` (y actualizar notebooks de inspección si aplica).
-4. **No mutar canónicos aguas arriba.** El bloque N solo lee el artefacto N−1.
-5. **Bump de** `data_version` en manifest + README del bloque si cambias semántica (no solo un bugfix cosmético).
-6. **SHA:** tras regenerar, actualiza checksums/manifests; quien consuma datos debe verificar SHA.
-7. **Notebooks no son la fuente de verdad.** Explican/inspeccionan; los scripts generan artefactos.
-
-
-
-### Prompt mínimo recomendado para un chat de IA
-
-Copia y adapta:
-
-```text
-Estás en el repo del Taller B5-T1 (prep. datos pre-sintéticos).
-Alcance: SOLO el bloque <raw|clean|features|splits>.
-1) Lee data/<bloque>/README.md y scripts/<script>.py
-2) Lee el README raíz para ver dependencias aguas abajo
-3) Aplica el cambio pedido: <describe el cambio>
-4) Regenera artefactos de ESE bloque; actualiza README + manifest + checksums
-5) NO toques otros bloques salvo que diga explícitamente regenerar la cadena
-6) Al final: lista ficheros tocados, nuevo data_version, nuevos SHA, y qué bloques hay que regenerar después
-```
-
-
-
-### Cadena de regeneración
-
-
-| Si cambias…                                   | Regenerar después                        |
-| --------------------------------------------- | ---------------------------------------- |
-| `raw` (contrato tickers/fechas / re-descarga) | clean → features → splits                |
-| `clean` (reglas de limpieza)                  | features → splits                        |
-| `features` (fórmulas, T, strides)             | splits                                   |
-| `splits` (fechas de protocolo)                | (nada de datos; sí revisar notebook 04b) |
-
-
-**Nota:** re-descargar `raw` puede cambiar SHA aunque el código sea igual (yfinance). Para trabajo en equipo, el parquet versionado + SHA es la fuente de verdad compartida; no asumas que dos máquinas regeneran bytes idénticos sin verificar.
+Common core `CERTIFIED` para el snapshot observado. La evidencia exacta y las condiciones de
+certificación están en [`COMMON_CORE_CERTIFICATION.md`](COMMON_CORE_CERTIFICATION.md).
