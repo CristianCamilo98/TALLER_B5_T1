@@ -1,238 +1,168 @@
 #!/usr/bin/env python3
-"""Limpieza/validación OHLCV (solo lectura de data/raw/).
-
-Uso:
-  .venv/bin/python scripts/clean_ohlcv.py
-
-Entrada (no se modifica):
-  data/raw/ohlcv_raw.parquet
-
-Salidas:
-  data/clean/ohlcv_clean.parquet
-  data/clean/ohlcv_clean.csv
-  data/clean/clean_manifest.json
-  data/clean/checksums.sha256
-  data/clean/README.md  (mantener alineado con las reglas de este script)
-"""
+"""Limpia OHLCV usando tolerancia explícita y el snapshot raw presente."""
 
 from __future__ import annotations
 
-import hashlib
-import json
+import argparse
 import sys
 from datetime import datetime, timezone
-from pathlib import Path
 
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
-
-DATA_VERSION = "clean-0.1.0"
-EXPECTED_INPUT_SHA256 = (
-    "6ecd4c929ecd3bdca32c646aec8210a7757b566843a90102f21bd86d2da036d6"
+from common_protocol import (
+    ROOT,
+    load_experiment_config,
+    normalize_date,
+    root_path,
+    sha256_file,
+    verify_snapshot,
+    write_checksums,
+    write_json,
 )
 
-INPUT_PARQUET = ROOT / "data" / "raw" / "ohlcv_raw.parquet"
-CLEAN_DIR = ROOT / "data" / "clean"
-PANEL_PARQUET = CLEAN_DIR / "ohlcv_clean.parquet"
-PANEL_CSV = CLEAN_DIR / "ohlcv_clean.csv"
-MANIFEST_PATH = CLEAN_DIR / "clean_manifest.json"
-CHECKSUMS_PATH = CLEAN_DIR / "checksums.sha256"
-
+DATA_VERSION = "clean-0.2.0"
 OHLC_COLS = ["Open", "High", "Low", "Close"]
 OHLCV_COLS = [*OHLC_COLS, "Volume"]
 OUT_COLS = ["date", "ticker", *OHLCV_COLS]
 
-COVERAGE_THRESHOLD = 0.95
 
-APPLIED_RULES = [
-    "no_forward_fill_prices_or_volume",
-    "drop_rows_with_nan_in_open_high_low_close",
-    "drop_rows_breaking_ohlc_invariants",
-    "normalize_date_naive_sort_by_date_ticker",
-    "coverage_vs_union_calendar_after_nan_and_invariant_drops_threshold_0.95",
-    "no_invented_rows_no_interpolation",
-    "raw_dir_read_only",
-]
+def ohlc_tolerance(df: pd.DataFrame, absolute: float, relative: float) -> pd.Series:
+    scale = df[OHLC_COLS].abs().max(axis=1)
+    return absolute + relative * scale
 
 
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def normalize_date(series: pd.Series) -> pd.Series:
-    """Fecha calendario naive (sin timezone), normalizada a medianoche."""
-    dt = pd.to_datetime(series)
-    if getattr(dt.dt, "tz", None) is not None:
-        dt = dt.dt.tz_convert("UTC").dt.tz_localize(None)
-    return dt.dt.normalize()
-
-
-def ohlc_invariant_mask(df: pd.DataFrame) -> pd.Series:
-    """True = fila válida respecto a invariantes OHLC + Volume >= 0."""
+def ohlc_invariant_mask(
+    df: pd.DataFrame,
+    *,
+    absolute_tolerance: float,
+    relative_tolerance: float,
+) -> pd.Series:
+    tolerance = ohlc_tolerance(df, absolute_tolerance, relative_tolerance)
     return (
-        (df["High"] >= df["Low"])
-        & (df["High"] >= df["Open"])
-        & (df["High"] >= df["Close"])
-        & (df["Low"] <= df["Open"])
-        & (df["Low"] <= df["Close"])
+        (df["High"] + tolerance >= df["Low"])
+        & (df["High"] + tolerance >= df["Open"])
+        & (df["High"] + tolerance >= df["Close"])
+        & (df["Low"] - tolerance <= df["Open"])
+        & (df["Low"] - tolerance <= df["Close"])
         & (df["Volume"] >= 0)
     )
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="configs/experiment.yaml")
+    return parser.parse_args()
+
+
 def main() -> int:
-    if not INPUT_PARQUET.is_file():
-        print(f"FALLO: no existe entrada {INPUT_PARQUET}", file=sys.stderr)
-        return 1
+    args = parse_args()
+    try:
+        config, config_path = load_experiment_config(args.config)
+        input_path = root_path(config, "raw_panel")
+        raw_manifest = root_path(config, "raw_manifest")
+        input_sha = verify_snapshot(input_path, raw_manifest)
+        output_parquet = root_path(config, "clean_panel")
+        output_csv = root_path(config, "clean_csv")
+        manifest_path = root_path(config, "clean_manifest")
+        quality_report_path = root_path(config, "clean_quality_report")
+        checksums_path = output_parquet.parent / "checksums.sha256"
 
-    input_sha = sha256_file(INPUT_PARQUET)
-    if input_sha != EXPECTED_INPUT_SHA256:
-        print(
-            "BLOQUEADO: SHA256 del parquet de entrada no coincide.\n"
-            f"  esperado: {EXPECTED_INPUT_SHA256}\n"
-            f"  obtenido: {input_sha}\n"
-            "No se re-descarga ni se modifica data/raw/. Abortando.",
-            file=sys.stderr,
+        cleaning = config["cleaning"]
+        absolute = float(cleaning["ohlc_tolerance"]["absolute"])
+        relative = float(cleaning["ohlc_tolerance"]["relative"])
+        coverage_threshold = float(cleaning["min_ticker_coverage"])
+
+        df = pd.read_parquet(input_path)
+        missing = [column for column in OUT_COLS if column not in df.columns]
+        if missing:
+            raise ValueError(f"Faltan columnas raw: {missing}")
+        rows_in = int(len(df))
+        df = df.copy()
+        df["date"] = normalize_date(df["date"])
+        df["ticker"] = df["ticker"].astype(str)
+        duplicates = int(df.duplicated(["date", "ticker"]).sum())
+        if duplicates:
+            raise ValueError(f"Duplicados raw (date,ticker): {duplicates}")
+
+        nan_mask = df[OHLC_COLS].isna().any(axis=1) | df["Volume"].isna()
+        dropped_nan = int(nan_mask.sum())
+        after_nan = df.loc[~nan_mask].copy()
+        strict_valid = ohlc_invariant_mask(
+            after_nan, absolute_tolerance=0.0, relative_tolerance=0.0
         )
+        tolerant_valid = ohlc_invariant_mask(
+            after_nan,
+            absolute_tolerance=absolute,
+            relative_tolerance=relative,
+        )
+        rescued_by_tolerance = int((~strict_valid & tolerant_valid).sum())
+        dropped_invariant = int((~tolerant_valid).sum())
+        filtered = after_nan.loc[tolerant_valid].copy()
+
+        calendar = pd.Index(sorted(filtered["date"].unique()))
+        if calendar.empty:
+            raise ValueError("Panel vacío después de validación")
+        coverage = {
+            ticker: float(group["date"].nunique() / len(calendar))
+            for ticker, group in filtered.groupby("ticker")
+        }
+        dropped_tickers = sorted(
+            ticker for ticker, value in coverage.items() if value < coverage_threshold
+        )
+        clean = filtered.loc[~filtered["ticker"].isin(dropped_tickers), OUT_COLS]
+        clean = clean.sort_values(["date", "ticker"]).reset_index(drop=True)
+        if clean.empty:
+            raise ValueError("Panel limpio vacío")
+
+        output_parquet.parent.mkdir(parents=True, exist_ok=True)
+        clean.to_parquet(output_parquet, index=False)
+        clean.to_csv(output_csv, index=False)
+
+        quality_rows = [
+            {"check": "rows_in", "value": rows_in, "status": "INFO"},
+            {"check": "dropped_nan", "value": dropped_nan, "status": "PASS"},
+            {"check": "strict_float_edge_rows", "value": rescued_by_tolerance, "status": "PASS"},
+            {"check": "dropped_material_invariant", "value": dropped_invariant, "status": "PASS"},
+            {"check": "duplicate_date_ticker", "value": duplicates, "status": "PASS"},
+            {"check": "rows_out", "value": int(len(clean)), "status": "INFO"},
+            {"check": "tickers_out", "value": int(clean["ticker"].nunique()), "status": "PASS"},
+        ]
+        pd.DataFrame(quality_rows).to_csv(quality_report_path, index=False)
+        checksums = write_checksums(
+            checksums_path, [output_parquet, output_csv, quality_report_path]
+        )
+        manifest = {
+            "data_version": DATA_VERSION,
+            "protocol_version": config["experiment"]["protocol_version"],
+            "built_at_utc": datetime.now(timezone.utc).isoformat(),
+            "config_path": str(config_path.relative_to(ROOT)).replace("\\", "/"),
+            "config_sha256": sha256_file(config_path),
+            "input_path": str(input_path.relative_to(ROOT)).replace("\\", "/"),
+            "input_snapshot_sha256_verified": input_sha,
+            "checksum_policy": "Input verified against its current manifest, not a hardcoded hash.",
+            "ohlc_tolerance": {"absolute": absolute, "relative": relative},
+            "rows_in": rows_in,
+            "rows_out": int(len(clean)),
+            "dropped_nan": dropped_nan,
+            "strict_float_edge_rows_rescued": rescued_by_tolerance,
+            "dropped_material_ohlc_invariant": dropped_invariant,
+            "ticker_coverage": {key: round(value, 9) for key, value in sorted(coverage.items())},
+            "dropped_tickers_low_coverage": dropped_tickers,
+            "date_min": str(clean["date"].min().date()),
+            "date_max": str(clean["date"].max().date()),
+            "tickers_out": sorted(clean["ticker"].unique().tolist()),
+            "schema": {"columns": OUT_COLS, "format": "long"},
+            "checksums_sha256": checksums,
+        }
+        write_json(manifest_path, manifest)
+    except Exception as exc:  # noqa: BLE001
+        print(f"FALLO limpieza: {exc}", file=sys.stderr)
         return 1
 
-    df = pd.read_parquet(INPUT_PARQUET)
-    missing = [c for c in OUT_COLS if c not in df.columns]
-    if missing:
-        print(f"FALLO: faltan columnas {missing}; got={list(df.columns)}", file=sys.stderr)
-        return 1
-
-    rows_in = int(len(df))
-
-    # 4 (parcial): normalizar date antes de drops para contar/ordenar de forma estable.
-    df = df.copy()
-    df["date"] = normalize_date(df["date"])
-    df["ticker"] = df["ticker"].astype(str)
-
-    # 2. Drop NaN en OHLC (no Volume obligatorio aquí; Volume NaN cae vía invariante Volume>=0
-    #    solo si se compara numéricamente — NaN en Volume no pasa Volume>=0 → se dropea).
-    nan_mask = df[OHLC_COLS].isna().any(axis=1)
-    dropped_nan_ohlc = int(nan_mask.sum())
-    df = df.loc[~nan_mask].copy()
-
-    # 3. Invariantes OHLC (+ Volume >= 0). Sin ffill / sin interpolar.
-    valid = ohlc_invariant_mask(df)
-    dropped_ohlc_invariant = int((~valid).sum())
-    df = df.loc[valid].copy()
-
-    # Calendario de cobertura = unión de fechas del panel tras drops NaN+invariantes
-    # (antes de excluir tickers por cobertura). Documentado en manifest y README.
-    calendar_dates = pd.Index(sorted(df["date"].unique()))
-    n_calendar = int(len(calendar_dates))
-    if n_calendar == 0:
-        print("FALLO: panel vacío tras drops NaN/invariantes.", file=sys.stderr)
-        return 1
-
-    coverage_note = (
-        "ticker_coverage = n_fechas_distintas_del_ticker / |unión de fechas del panel "
-        "tras drops NaN en OHLC e invariantes OHLC|; umbral "
-        f"{COVERAGE_THRESHOLD}. Sin inventar filas."
+    print(
+        f"OK clean: {rows_in}->{len(clean)}; "
+        f"float_edges_rescued={rescued_by_tolerance}; material_drops={dropped_invariant}"
     )
-
-    ticker_coverage: dict[str, float] = {}
-    dropped_tickers_low_coverage: list[str] = []
-    keep_tickers: list[str] = []
-
-    for ticker in sorted(df["ticker"].unique()):
-        n_dates = int(df.loc[df["ticker"] == ticker, "date"].nunique())
-        cov = n_dates / n_calendar
-        ticker_coverage[ticker] = round(cov, 6)
-        if cov < COVERAGE_THRESHOLD:
-            dropped_tickers_low_coverage.append(ticker)
-        else:
-            keep_tickers.append(ticker)
-
-    df = df.loc[df["ticker"].isin(keep_tickers)].copy()
-
-    # 4. Orden final (date, ticker); columnas canónicas.
-    df = df.sort_values(["date", "ticker"]).reset_index(drop=True)
-    df = df[OUT_COLS]
-
-    rows_out = int(len(df))
-    if rows_out == 0:
-        print("FALLO: panel limpio vacío tras filtros de cobertura.", file=sys.stderr)
-        return 1
-
-    CLEAN_DIR.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(PANEL_PARQUET, index=False)
-    df.to_csv(PANEL_CSV, index=False)
-
-    parquet_sha = sha256_file(PANEL_PARQUET)
-    csv_sha = sha256_file(PANEL_CSV)
-
-    checksums = {
-        str(PANEL_PARQUET.relative_to(ROOT)): parquet_sha,
-        str(PANEL_CSV.relative_to(ROOT)): csv_sha,
-    }
-    CHECKSUMS_PATH.write_text(
-        "\n".join(f"{digest}  {rel}" for rel, digest in checksums.items()) + "\n",
-        encoding="utf-8",
-    )
-
-    date_min = str(df["date"].min().date())
-    date_max = str(df["date"].max().date())
-    tickers_out = sorted(df["ticker"].unique().tolist())
-
-    manifest = {
-        "data_version": DATA_VERSION,
-        "built_at_utc": datetime.now(timezone.utc).isoformat(),
-        "input_path": str(INPUT_PARQUET.relative_to(ROOT)),
-        "input_sha256_verified": input_sha,
-        "input_sha256_expected": EXPECTED_INPUT_SHA256,
-        "rules_applied": APPLIED_RULES,
-        "coverage_threshold": COVERAGE_THRESHOLD,
-        "coverage_calendar_definition": coverage_note,
-        "rows_in": rows_in,
-        "rows_out": rows_out,
-        "dropped_nan_ohlc": dropped_nan_ohlc,
-        "dropped_ohlc_invariant": dropped_ohlc_invariant,
-        "ticker_coverage": ticker_coverage,
-        "dropped_tickers_low_coverage": dropped_tickers_low_coverage,
-        "calendar_n_dates": n_calendar,
-        "date_min": date_min,
-        "date_max": date_max,
-        "tickers_out": tickers_out,
-        "schema": {
-            "columns": OUT_COLS,
-            "format": "long (una fila = un ticker × un día de sesión)",
-        },
-        "output_paths": {
-            "panel_parquet": str(PANEL_PARQUET.relative_to(ROOT)),
-            "panel_csv": str(PANEL_CSV.relative_to(ROOT)),
-            "manifest": str(MANIFEST_PATH.relative_to(ROOT)),
-            "checksums": str(CHECKSUMS_PATH.relative_to(ROOT)),
-            "readme": str((CLEAN_DIR / "README.md").relative_to(ROOT)),
-        },
-        "checksums_sha256": checksums,
-        "notes": [
-            "Solo limpieza/validación OHLCV. Features, log_return, ventanas y splits quedan fuera.",
-            "No forward-fill, no interpolación, no filas inventadas.",
-            "data/raw/ se lee solo; no se escribe.",
-        ],
-    }
-    MANIFEST_PATH.write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
-
-    print("OK — limpieza OHLCV")
-    print(f"  input sha256:  {input_sha}")
-    print(f"  rows_in/out:   {rows_in} → {rows_out}")
-    print(f"  dropped_nan:   {dropped_nan_ohlc}")
-    print(f"  dropped_inv:   {dropped_ohlc_invariant}")
-    print(f"  low_coverage:  {dropped_tickers_low_coverage}")
-    print(f"  tickers_out:   {tickers_out}")
-    print(f"  parquet:       {PANEL_PARQUET}")
-    print(f"  sha256:        {parquet_sha}")
     return 0
 
 

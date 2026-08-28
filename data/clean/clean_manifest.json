@@ -1,0 +1,65 @@
+{
+  "data_version": "clean-0.2.0",
+  "protocol_version": "common-core-1.0.0",
+  "built_at_utc": "2026-08-28T17:58:41.621423+00:00",
+  "config_path": "configs/experiment.yaml",
+  "config_sha256": "7b105c539879e381e608c1d6f91d11e59c5832cd00c577994bb709e965dfa622",
+  "input_path": "data/raw/ohlcv_raw.parquet",
+  "input_snapshot_sha256_verified": "19f736d6c1b96bc5915430796b924acd142a6487a8df79e54d58f0dea4e7067b",
+  "checksum_policy": "Input verified against its current manifest, not a hardcoded hash.",
+  "ohlc_tolerance": {
+    "absolute": 1e-10,
+    "relative": 1e-12
+  },
+  "rows_in": 38720,
+  "rows_out": 38720,
+  "dropped_nan": 0,
+  "strict_float_edge_rows_rescued": 8,
+  "dropped_material_ohlc_invariant": 0,
+  "ticker_coverage": {
+    "ADI": 1.0,
+    "AMD": 1.0,
+    "AVGO": 1.0,
+    "INTC": 1.0,
+    "MCHP": 1.0,
+    "MRVL": 1.0,
+    "MU": 1.0,
+    "NVDA": 1.0,
+    "NXPI": 1.0,
+    "QCOM": 1.0,
+    "TXN": 1.0
+  },
+  "dropped_tickers_low_coverage": [],
+  "date_min": "2012-01-03",
+  "date_max": "2025-12-31",
+  "tickers_out": [
+    "ADI",
+    "AMD",
+    "AVGO",
+    "INTC",
+    "MCHP",
+    "MRVL",
+    "MU",
+    "NVDA",
+    "NXPI",
+    "QCOM",
+    "TXN"
+  ],
+  "schema": {
+    "columns": [
+      "date",
+      "ticker",
+      "Open",
+      "High",
+      "Low",
+      "Close",
+      "Volume"
+    ],
+    "format": "long"
+  },
+  "checksums_sha256": {
+    "data/clean/ohlcv_clean.parquet": "f8d75e079ca6ca892eed86fb50daff351f5fb937e94cd0f31fecd9d7f87ac1a3",
+    "data/clean/ohlcv_clean.csv": "639268ebf608fae65dc51d8c18678a1cf88b2ff5c147a616fcc435ac6f6dad75",
+    "data/clean/quality_report.csv": "6421139d7ac98518d72bcdf0847d521406b6d746c568fc897e7ff924ad4194d0"
+  }
+}

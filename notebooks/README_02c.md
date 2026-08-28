@@ -1,5 +1,7 @@
 # Notebook 02c — EDA exploratoria del panel limpio
 
+> **LEGACY SNAPSHOT:** previo a `common-core-1.0.0`; no es evidencia de certificación.
+
 Playground interactivo sobre **OHLCV ya limpio**. Sirve para entender la naturaleza de los datos ticker a ticker y en conjunto (añadir celdas libremente).
 
 **No** regenera ni corrige `data/clean/`. Si el SHA no coincide, el notebook se detiene.

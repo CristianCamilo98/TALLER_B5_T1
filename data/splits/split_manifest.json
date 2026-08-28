@@ -1,0 +1,99 @@
+{
+  "data_version": "daily-splits-1.0.0",
+  "protocol_version": "common-core-1.0.0",
+  "built_at_utc": "2026-08-28T17:58:42.051523+00:00",
+  "config_path": "configs/experiment.yaml",
+  "config_sha256": "7b105c539879e381e608c1d6f91d11e59c5832cd00c577994bb709e965dfa622",
+  "input_path": "data/clean/ohlcv_clean.parquet",
+  "input_snapshot_sha256_verified": "f8d75e079ca6ca892eed86fb50daff351f5fb937e94cd0f31fecd9d7f87ac1a3",
+  "assignment_order": "daily rows first; windows are not created by this stage",
+  "date_rules": {
+    "donor_train_start": "2012-01-03",
+    "donor_train_end": "2021-12-31",
+    "donor_validation_start": "2022-01-03",
+    "donor_validation_end": "2022-12-30",
+    "target_visible_start": "2022-07-01",
+    "target_visible_end": "2022-12-30",
+    "target_hidden_start": "2012-01-03",
+    "target_hidden_end": "2022-06-30",
+    "target_test_start": "2023-01-03",
+    "target_test_end": "2025-12-31"
+  },
+  "target": "NVDA",
+  "donors": [
+    "AMD",
+    "INTC",
+    "QCOM",
+    "AVGO",
+    "MU",
+    "TXN",
+    "ADI",
+    "MCHP",
+    "MRVL",
+    "NXPI"
+  ],
+  "counts": {
+    "donor_train": {
+      "n_rows": 25170,
+      "date_min": "2012-01-03",
+      "date_max": "2021-12-31",
+      "n_tickers": 10
+    },
+    "donor_validation": {
+      "n_rows": 2510,
+      "date_min": "2022-01-03",
+      "date_max": "2022-12-30",
+      "n_tickers": 10
+    },
+    "nvda_hidden": {
+      "n_rows": 2641,
+      "date_min": "2012-01-03",
+      "date_max": "2022-06-30",
+      "n_tickers": 1
+    },
+    "nvda_visible": {
+      "n_rows": 127,
+      "date_min": "2022-07-01",
+      "date_max": "2022-12-30",
+      "n_tickers": 1
+    },
+    "nvda_test": {
+      "n_rows": 752,
+      "date_min": "2023-01-03",
+      "date_max": "2025-12-31",
+      "n_tickers": 1
+    },
+    "unused": {
+      "n_rows": 7520,
+      "date_min": "2023-01-03",
+      "date_max": "2025-12-31",
+      "n_tickers": 10
+    }
+  },
+  "assertions": {
+    "partition_exhaustive": true,
+    "natural_key_unique": true,
+    "mutually_exclusive": true,
+    "no_windows_created_before_split": true
+  },
+  "schema": {
+    "columns": [
+      "date",
+      "ticker",
+      "daily_row",
+      "split"
+    ],
+    "split_labels": [
+      "donor_train",
+      "donor_validation",
+      "nvda_hidden",
+      "nvda_visible",
+      "nvda_test",
+      "unused"
+    ]
+  },
+  "checksums_sha256": {
+    "data/splits/daily_split_assignments.parquet": "011cbcbb0b702b2d4b36faba6e24f370215c52df7fd4050907bccd9e71aaa160",
+    "data/splits/daily_split_report.csv": "6620a3ceed7b3ef98aaabbbe28527301a02de946ff41ca133ff0cea4ab5b9c81"
+  }
+}

@@ -1,0 +1,215 @@
+{
+  "data_version": "raw-0.2.0",
+  "protocol_version": "common-core-1.0.0",
+  "built_at_utc": "2026-08-28T17:58:41.072322+00:00",
+  "config_path": "configs/experiment.yaml",
+  "config_sha256": "7b105c539879e381e608c1d6f91d11e59c5832cd00c577994bb709e965dfa622",
+  "source": "yfinance",
+  "acquisition_mode": "downloaded_from_yfinance",
+  "tickers_requested": [
+    "NVDA",
+    "AMD",
+    "INTC",
+    "QCOM",
+    "AVGO",
+    "MU",
+    "TXN",
+    "ADI",
+    "MCHP",
+    "MRVL",
+    "NXPI"
+  ],
+  "yfinance_params": {
+    "start": "2012-01-03",
+    "end_inclusive_requested": "2025-12-31",
+    "end_passed_to_yfinance": "2026-01-01",
+    "interval": "1d",
+    "auto_adjust": true
+  },
+  "per_ticker": {
+    "NVDA": {
+      "n_rows": 3520,
+      "date_min": "2012-01-03",
+      "date_max": "2025-12-31",
+      "n_nulls": {
+        "Open": 0,
+        "High": 0,
+        "Low": 0,
+        "Close": 0,
+        "Volume": 0
+      },
+      "path": "data/raw/by_ticker/NVDA.parquet"
+    },
+    "AMD": {
+      "n_rows": 3520,
+      "date_min": "2012-01-03",
+      "date_max": "2025-12-31",
+      "n_nulls": {
+        "Open": 0,
+        "High": 0,
+        "Low": 0,
+        "Close": 0,
+        "Volume": 0
+      },
+      "path": "data/raw/by_ticker/AMD.parquet"
+    },
+    "INTC": {
+      "n_rows": 3520,
+      "date_min": "2012-01-03",
+      "date_max": "2025-12-31",
+      "n_nulls": {
+        "Open": 0,
+        "High": 0,
+        "Low": 0,
+        "Close": 0,
+        "Volume": 0
+      },
+      "path": "data/raw/by_ticker/INTC.parquet"
+    },
+    "QCOM": {
+      "n_rows": 3520,
+      "date_min": "2012-01-03",
+      "date_max": "2025-12-31",
+      "n_nulls": {
+        "Open": 0,
+        "High": 0,
+        "Low": 0,
+        "Close": 0,
+        "Volume": 0
+      },
+      "path": "data/raw/by_ticker/QCOM.parquet"
+    },
+    "AVGO": {
+      "n_rows": 3520,
+      "date_min": "2012-01-03",
+      "date_max": "2025-12-31",
+      "n_nulls": {
+        "Open": 0,
+        "High": 0,
+        "Low": 0,
+        "Close": 0,
+        "Volume": 0
+      },
+      "path": "data/raw/by_ticker/AVGO.parquet"
+    },
+    "MU": {
+      "n_rows": 3520,
+      "date_min": "2012-01-03",
+      "date_max": "2025-12-31",
+      "n_nulls": {
+        "Open": 0,
+        "High": 0,
+        "Low": 0,
+        "Close": 0,
+        "Volume": 0
+      },
+      "path": "data/raw/by_ticker/MU.parquet"
+    },
+    "TXN": {
+      "n_rows": 3520,
+      "date_min": "2012-01-03",
+      "date_max": "2025-12-31",
+      "n_nulls": {
+        "Open": 0,
+        "High": 0,
+        "Low": 0,
+        "Close": 0,
+        "Volume": 0
+      },
+      "path": "data/raw/by_ticker/TXN.parquet"
+    },
+    "ADI": {
+      "n_rows": 3520,
+      "date_min": "2012-01-03",
+      "date_max": "2025-12-31",
+      "n_nulls": {
+        "Open": 0,
+        "High": 0,
+        "Low": 0,
+        "Close": 0,
+        "Volume": 0
+      },
+      "path": "data/raw/by_ticker/ADI.parquet"
+    },
+    "MCHP": {
+      "n_rows": 3520,
+      "date_min": "2012-01-03",
+      "date_max": "2025-12-31",
+      "n_nulls": {
+        "Open": 0,
+        "High": 0,
+        "Low": 0,
+        "Close": 0,
+        "Volume": 0
+      },
+      "path": "data/raw/by_ticker/MCHP.parquet"
+    },
+    "MRVL": {
+      "n_rows": 3520,
+      "date_min": "2012-01-03",
+      "date_max": "2025-12-31",
+      "n_nulls": {
+        "Open": 0,
+        "High": 0,
+        "Low": 0,
+        "Close": 0,
+        "Volume": 0
+      },
+      "path": "data/raw/by_ticker/MRVL.parquet"
+    },
+    "NXPI": {
+      "n_rows": 3520,
+      "date_min": "2012-01-03",
+      "date_max": "2025-12-31",
+      "n_nulls": {
+        "Open": 0,
+        "High": 0,
+        "Low": 0,
+        "Close": 0,
+        "Volume": 0
+      },
+      "path": "data/raw/by_ticker/NXPI.parquet"
+    }
+  },
+  "panel": {
+    "n_rows": 38720,
+    "date_min": "2012-01-03",
+    "date_max": "2025-12-31",
+    "n_duplicates_date_ticker": 0,
+    "n_nulls": {
+      "Open": 0,
+      "High": 0,
+      "Low": 0,
+      "Close": 0,
+      "Volume": 0
+    }
+  },
+  "schema": {
+    "columns": [
+      "date",
+      "ticker",
+      "Open",
+      "High",
+      "Low",
+      "Close",
+      "Volume"
+    ],
+    "format": "long"
+  },
+  "checksums_sha256": {
+    "data/raw/by_ticker/NVDA.parquet": "bb5d9036f2b67d9d9279e73540daae88d2b5be958d700d07bc16974332c86f9b",
+    "data/raw/by_ticker/AMD.parquet": "b4af187f9c8786730830782163993fe7dff0e2d9251c485dfc78a075fbfe8eda",
+    "data/raw/by_ticker/INTC.parquet": "f3edb85b00419cb8bd52e72567a663ce94ae5f04b645ffa6012683be41133293",
+    "data/raw/by_ticker/QCOM.parquet": "add3354b76788e296ef7521b3fa3653448197f35d69745192ad8ee3f1aa7e596",
+    "data/raw/by_ticker/AVGO.parquet": "40c43220221f6db9282b02f89662a97e36477bdca6cb5bd067d85f370601aae5",
+    "data/raw/by_ticker/MU.parquet": "d65a4b6b9a655f874e11bb7954eae4b60c88f34b7ee5939361fee71ad36fad48",
+    "data/raw/by_ticker/TXN.parquet": "558ed353d3fcd9aeb70eabe0a5cb8e4472651771d12b9e3a7cc529b0ffc73c7a",
+    "data/raw/by_ticker/ADI.parquet": "8a7eb9ee0c0e46591cc3431ea9c93f8fffd92a43bb0bb87f93a933f14ef077e9",
+    "data/raw/by_ticker/MCHP.parquet": "8b01045a644cba6502269714e7c961f25236ddb8dc101451ab6154bc36810200",
+    "data/raw/by_ticker/MRVL.parquet": "bce144533d5b0632798b15fd84fd7d385115190fbbe10bc2e9735438b568faa5",
+    "data/raw/by_ticker/NXPI.parquet": "f134d0586d06cc207b66f280ff527d5041258d834ae3b7b527ca04d5c59201ea",
+    "data/raw/ohlcv_raw.parquet": "19f736d6c1b96bc5915430796b924acd142a6487a8df79e54d58f0dea4e7067b",
+    "data/raw/ohlcv_raw.csv": "639268ebf608fae65dc51d8c18678a1cf88b2ff5c147a616fcc435ac6f6dad75"
+  },
+  "checksum_policy": "Hashes describe this observed snapshot. Downstream stages verify against this manifest; no future yfinance download is required to reproduce the same hash."
+}
