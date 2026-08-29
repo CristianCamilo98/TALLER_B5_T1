@@ -27,6 +27,7 @@ py -3.12 generadores/daniel/scripts/smoke_test.py
 py -3.12 generadores/daniel/scripts/tiny_overfit.py --steps 150
 python generadores/daniel/scripts/train.py
 python generadores/daniel/scripts/plot_training.py
+python generadores/daniel/scripts/sample_diagnostics.py
 ```
 
 The smoke test performs one optimizer update and mechanical sampling only. The
@@ -40,6 +41,12 @@ dedicated generator that is reinitialized to seed `424242` at every epoch;
 therefore each validation row sees the same timestep/noise realization across
 epochs. Validation runs under `no_grad`, never updates the optimizer, and never
 participates in normalization fit.
+
+`sample_diagnostics.py` is a preliminary, generator-local normalized-space
+diagnostic. It creates exactly 1,000 samples, checks deterministic sampling,
+and compares them with normalized donor validation. Its Wasserstein, ACF,
+correlation, nearest-neighbour, and diversity outputs are not the future common
+fidelity evaluation and must not be compared as final cross-generator scores.
 
 Generated checkpoints, histories, samples, manifests, and figures belong
 under `artifacts/` and are excluded locally through `.git/info/exclude`.
