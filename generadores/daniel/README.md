@@ -25,8 +25,12 @@ py -3.12 -m pytest -q generadores/daniel/tests
 py -3.12 generadores/daniel/scripts/inspect_inputs.py
 py -3.12 generadores/daniel/scripts/smoke_test.py
 py -3.12 generadores/daniel/scripts/tiny_overfit.py --steps 150
-python generadores/daniel/scripts/train.py
-python generadores/daniel/scripts/plot_training.py
+python generadores/daniel/scripts/train.py --seed 42
+python generadores/daniel/scripts/train.py --seed 123
+python generadores/daniel/scripts/train.py --seed 2026
+python generadores/daniel/scripts/plot_training.py --run-id diffusion_seed42_frozen
+python generadores/daniel/scripts/verify_frozen_runs.py
+python generadores/daniel/scripts/summarize_frozen_seeds.py
 python generadores/daniel/scripts/sample_diagnostics.py
 ```
 
@@ -34,9 +38,12 @@ The smoke test performs one optimizer update and mechanical sampling only. The
 tiny-overfit diagnostic uses 32 donor-train windows and fixed noise/timesteps;
 neither command performs full training or accesses any NVDA artifact.
 
-The real seed-42 entrypoint refuses a dirty Git worktree and rejects any
-configuration drift from `config/diffusion.yaml`. Training timesteps and noise
-remain stochastic under the run seed. Validation is ordered and receives a
+The final training entrypoint refuses a dirty Git worktree, rejects any
+configuration drift from `config/diffusion.yaml`, and accepts only seeds 42,
+123, and 2026. The runtime override changes only `reproducibility.seed`; all
+other model, diffusion, training, normalization, and validation settings are
+frozen. Training timesteps and noise remain stochastic under the run seed.
+Validation is ordered and receives a
 dedicated generator that is reinitialized to seed `424242` at every epoch;
 therefore each validation row sees the same timestep/noise realization across
 epochs. Validation runs under `no_grad`, never updates the optimizer, and never

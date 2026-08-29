@@ -1,9 +1,10 @@
-"""Train the frozen seed-42 DDPM baseline on certified donor data only."""
+"""Train one approved seed of the frozen DDPM baseline on donor data only."""
 
 from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -22,6 +23,9 @@ from generadores.daniel.src.diffusion import GaussianDiffusion  # noqa: E402
 from generadores.daniel.src.network import TemporalDenoiser  # noqa: E402
 from generadores.daniel.src.reproducibility import set_seed  # noqa: E402
 from generadores.daniel.src.run_artifacts import (  # noqa: E402
+    FROZEN_TRAINING_SEEDS,
+    frozen_config_for_seed,
+    frozen_run_id,
     validate_frozen_baseline,
     write_history,
     write_manifest,
@@ -32,7 +36,6 @@ from generadores.daniel.src.temporary_normalizer import (  # noqa: E402
 from generadores.daniel.src.trainer import DiffusionTrainer, TrainerConfig  # noqa: E402
 from generadores.daniel.src.validation import CHANNEL_ORDER  # noqa: E402
 
-RUN_ID = "diffusion_seed42_baseline"
 CANONICAL_RAW_SHA256 = "6ecd4c929ecd3bdca32c646aec8210a7757b566843a90102f21bd86d2da036d6"
 DONOR_TRAIN_SHA256 = "5f1e33f69b02bad86d89dcc2f67a1018cef68aaeacfbf72c310a1b7902fc268f"
 DONOR_VALIDATION_SHA256 = "134f51a2ac9e546bf1a2f21f4efbf56a62bf019a08de14209058563b0a88ae23"
@@ -48,6 +51,14 @@ def _load_config(path: Path) -> dict:
     config = yaml.safe_load(path.read_text(encoding="utf-8"))
     validate_frozen_baseline(config)
     return config
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _assert_clean_versioned_code() -> None:
@@ -71,13 +82,16 @@ def main() -> None:
         type=Path,
         default=REPOSITORY_ROOT / "generadores/daniel/config/diffusion.yaml",
     )
-    parser.add_argument("--run-id", default=RUN_ID)
+    parser.add_argument("--seed", type=int, choices=FROZEN_TRAINING_SEEDS, default=42)
+    parser.add_argument("--run-id")
     args = parser.parse_args()
-    if args.run_id != RUN_ID:
-        raise ValueError(f"The first baseline run_id is frozen as {RUN_ID!r}")
+    expected_run_id = frozen_run_id(args.seed)
+    run_id = args.run_id or expected_run_id
+    if run_id != expected_run_id:
+        raise ValueError(f"Seed {args.seed} requires run_id {expected_run_id!r}")
 
     _assert_clean_versioned_code()
-    config = _load_config(args.config.resolve())
+    config = frozen_config_for_seed(_load_config(args.config.resolve()), args.seed)
     start_time = datetime.now(timezone.utc)
     seed = int(config["reproducibility"]["seed"])
     validation_seed = int(config["reproducibility"]["validation_seed"])
@@ -111,11 +125,12 @@ def main() -> None:
     )
 
     artifact_root = REPOSITORY_ROOT / "generadores/daniel/artifacts"
-    checkpoint_directory = artifact_root / "checkpoints" / args.run_id
-    history_path = artifact_root / "histories" / f"{args.run_id}.csv"
-    normalizer_path = artifact_root / "manifests/diffusion_seed42_normalizer.json"
-    manifest_path = artifact_root / "manifests" / f"{args.run_id}.json"
+    checkpoint_directory = artifact_root / "checkpoints" / run_id
+    history_path = artifact_root / "histories" / f"{run_id}.csv"
+    normalizer_path = artifact_root / "manifests" / f"{run_id}_normalizer.json"
+    manifest_path = artifact_root / "manifests" / f"{run_id}.json"
     normalizer.save_json(normalizer_path)
+    normalizer_sha256 = _sha256_file(normalizer_path)
 
     batch_size = int(config["training"]["batch_size"])
     loader_generator = torch.Generator().manual_seed(seed)
@@ -162,7 +177,7 @@ def main() -> None:
     git_commit = _git("rev-parse", "HEAD")
     base_master_commit = _git("merge-base", "HEAD", "master")
     checkpoint_metadata = {
-        "run_id": args.run_id,
+        "run_id": run_id,
         "effective_config": config,
         "seed": seed,
         "validation_seed": validation_seed,
@@ -194,9 +209,11 @@ def main() -> None:
     if not best_path.is_file() or not last_path.is_file():
         raise RuntimeError("Required checkpoints were not created")
     manifest = {
-        "run_id": args.run_id,
-        "model": model_config,
+        "run_id": run_id,
+        "model": "diffusion",
+        "model_config": model_config,
         "seed": seed,
+        "training_seed": seed,
         "validation_seed": validation_seed,
         "git_commit": git_commit,
         "base_master_commit": base_master_commit,
@@ -211,6 +228,7 @@ def main() -> None:
         "validation_dates": _date_range(validation.metadata),
         "normalization_type": "temporary_ticker_channel_zscore_train_only",
         "normalizer_path": normalizer_path.relative_to(REPOSITORY_ROOT).as_posix(),
+        "normalizer_sha256": normalizer_sha256,
         "normalizer_minimum_std": minimum_std,
         "normalizer_roundtrip_max_abs_error": roundtrip_error,
         "effective_config": config,
@@ -228,9 +246,14 @@ def main() -> None:
         "final_validation_loss": result.history[-1]["validation_loss"],
         "stopping_reason": result.stopping_reason,
         "total_seconds": result.total_seconds,
+        "runtime_seconds": result.total_seconds,
         "mean_seconds_per_epoch": result.total_seconds / len(result.history),
         "checkpoint_best": best_path.relative_to(REPOSITORY_ROOT).as_posix(),
         "checkpoint_last": last_path.relative_to(REPOSITORY_ROOT).as_posix(),
+        "best_checkpoint_path": best_path.relative_to(REPOSITORY_ROOT).as_posix(),
+        "last_checkpoint_path": last_path.relative_to(REPOSITORY_ROOT).as_posix(),
+        "best_checkpoint_sha256": _sha256_file(best_path),
+        "last_checkpoint_sha256": _sha256_file(last_path),
         "history_path": history_path.relative_to(REPOSITORY_ROOT).as_posix(),
         "validation_protocol": {
             "shuffle": False,

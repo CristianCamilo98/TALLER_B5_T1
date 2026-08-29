@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 import json
 from pathlib import Path
 from typing import Any
@@ -79,14 +80,49 @@ FROZEN_BASELINE = {
     "reproducibility": {"seed": 42, "validation_seed": 424242},
 }
 
+FROZEN_TRAINING_SEEDS = (42, 123, 2026)
+FROZEN_RUN_IDS = {
+    42: "diffusion_seed42_frozen",
+    123: "diffusion_seed123_frozen",
+    2026: "diffusion_seed2026_frozen",
+}
+
 
 def validate_frozen_baseline(config: dict[str, Any]) -> None:
-    """Reject any effective hyperparameter drift for the first real run."""
+    """Reject any drift from the source baseline configuration."""
 
     if config != FROZEN_BASELINE:
         raise ValueError(
             "diffusion.yaml does not exactly match the frozen seed-42 baseline"
         )
+
+
+def frozen_config_for_seed(config: dict[str, Any], seed: int) -> dict[str, Any]:
+    """Return a frozen config whose only runtime change is the training seed."""
+
+    validate_frozen_baseline(config)
+    seed = int(seed)
+    if seed not in FROZEN_TRAINING_SEEDS:
+        raise ValueError(f"Training seed must be one of {FROZEN_TRAINING_SEEDS}")
+    effective = deepcopy(config)
+    effective["reproducibility"]["seed"] = seed
+    return effective
+
+
+def validate_frozen_effective_config(config: dict[str, Any], seed: int) -> None:
+    """Verify that an effective run config differs only by its approved seed."""
+
+    expected = deepcopy(FROZEN_BASELINE)
+    expected["reproducibility"]["seed"] = int(seed)
+    if int(seed) not in FROZEN_TRAINING_SEEDS or config != expected:
+        raise ValueError("Effective config drifted from the frozen multi-seed baseline")
+
+
+def frozen_run_id(seed: int) -> str:
+    try:
+        return FROZEN_RUN_IDS[int(seed)]
+    except (KeyError, ValueError) as error:
+        raise ValueError(f"Training seed must be one of {FROZEN_TRAINING_SEEDS}") from error
 
 
 def write_history(history: list[dict], path: Path | str) -> None:

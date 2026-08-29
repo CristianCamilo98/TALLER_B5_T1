@@ -17,10 +17,7 @@ if str(REPOSITORY_ROOT) not in sys.path:
 
 from generadores.daniel.src.run_artifacts import read_history  # noqa: E402
 
-RUN_ID = "diffusion_seed42_baseline"
-
-
-def plot_training(history_path: Path, output_path: Path) -> dict:
+def plot_training(history_path: Path, output_path: Path, *, run_id: str | None = None) -> dict:
     history = read_history(history_path)
     best_index = history["validation_loss"].idxmin()
     best_epoch = int(history.loc[best_index, "epoch"])
@@ -44,7 +41,8 @@ def plot_training(history_path: Path, output_path: Path) -> dict:
     axis.scatter([best_epoch], [best_loss], color="black", s=30, zorder=3)
     axis.set_xlabel("Epoch")
     axis.set_ylabel("Epsilon-prediction MSE")
-    axis.set_title("DDPM seed 42 baseline — training convergence")
+    title = f"DDPM {run_id} - training convergence" if run_id else "DDPM training convergence"
+    axis.set_title(title)
     axis.grid(alpha=0.25)
     axis.legend()
     figure.tight_layout()
@@ -56,19 +54,18 @@ def plot_training(history_path: Path, output_path: Path) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--history",
-        type=Path,
-        default=REPOSITORY_ROOT / f"generadores/daniel/artifacts/histories/{RUN_ID}.csv",
-    )
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=REPOSITORY_ROOT / f"generadores/daniel/artifacts/figures/{RUN_ID}_loss.png",
-    )
+    parser.add_argument("--run-id", default="diffusion_seed42_frozen")
+    parser.add_argument("--history", type=Path)
+    parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    result = plot_training(args.history.resolve(), args.output.resolve())
-    print(f"figure={args.output.resolve()}")
+    history = args.history or REPOSITORY_ROOT / (
+        f"generadores/daniel/artifacts/histories/{args.run_id}.csv"
+    )
+    output = args.output or REPOSITORY_ROOT / (
+        f"generadores/daniel/artifacts/figures/{args.run_id}_loss.png"
+    )
+    result = plot_training(history.resolve(), output.resolve(), run_id=args.run_id)
+    print(f"figure={output.resolve()}")
     print(f"best_epoch={result['best_epoch']}")
     print(f"best_validation_loss={result['best_validation_loss']:.10f}")
 
