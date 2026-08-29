@@ -32,6 +32,10 @@ python generadores/daniel/scripts/plot_training.py --run-id diffusion_seed42_fro
 python generadores/daniel/scripts/verify_frozen_runs.py
 python generadores/daniel/scripts/summarize_frozen_seeds.py
 python generadores/daniel/scripts/sample_diagnostics.py
+python generadores/daniel/scripts/generate_final_pools.py --seed 42
+python generadores/daniel/scripts/generate_final_pools.py --seed 123
+python generadores/daniel/scripts/generate_final_pools.py --seed 2026
+python generadores/daniel/scripts/summarize_final_pools.py
 ```
 
 The smoke test performs one optimizer update and mechanical sampling only. The
@@ -54,6 +58,14 @@ diagnostic. It creates exactly 1,000 samples, checks deterministic sampling,
 and compares them with normalized donor validation. Its Wasserstein, ACF,
 correlation, nearest-neighbour, and diversity outputs are not the future common
 fidelity evaluation and must not be compared as final cross-generator scores.
+
+Final-pool generation uses each frozen best checkpoint without retraining. The
+temporary NVDA calibrator reads only unique daily rows from the canonical
+`nvda_visible` feature block and applies `mean + std * normalized_sample` with
+population statistics. Physical validation rejects an entire window; it never
+clips, repairs, takes absolute values, or uses a donor inverse transform. These
+calibration and plotting utilities are local preparation for the future common
+fidelity phase, not a replacement for it.
 
 Generated checkpoints, histories, samples, manifests, and figures belong
 under `artifacts/` and are excluded locally through `.git/info/exclude`.
