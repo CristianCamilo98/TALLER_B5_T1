@@ -1,4 +1,0 @@
-# DEPRECATED: se conserva únicamente para no romper enlaces históricos.
-# La única fuente de verdad metodológica es configs/experiment.yaml.
-deprecated: true
-canonical_config: "configs/experiment.yaml"
