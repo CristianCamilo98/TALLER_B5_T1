@@ -25,6 +25,7 @@ FINAL_POOL_MANIFEST_FIELDS = frozenset(
         "base_master_commit",
         "checkpoint_path",
         "checkpoint_sha256",
+        "checkpoint_manifest_sha256",
         "donor_train_sha256",
         "donor_validation_sha256",
         "normalizer_sha256",

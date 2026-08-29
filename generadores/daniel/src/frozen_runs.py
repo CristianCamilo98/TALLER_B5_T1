@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+import re
 from typing import Any
 
 import numpy as np
@@ -39,6 +40,41 @@ def sha256_file(path: Path | str) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def validate_sha256_hex(value: str, *, field: str = "sha256") -> str:
+    """Require an exact lowercase, 64-character SHA256 hexadecimal digest."""
+
+    if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None:
+        raise ValueError(f"{field} must contain exactly 64 lowercase hexadecimal characters")
+    return value
+
+
+def verify_best_checkpoint_from_manifest(
+    repository_root: Path | str, manifest: dict[str, Any]
+) -> tuple[Path, str]:
+    """Resolve and hash a best checkpoint using its frozen manifest as authority."""
+
+    expected = validate_sha256_hex(
+        manifest.get("best_checkpoint_sha256"), field="best_checkpoint_sha256"
+    )
+    relative_path = manifest.get("best_checkpoint_path")
+    if not isinstance(relative_path, str) or not relative_path:
+        raise ValueError("Frozen manifest lacks best_checkpoint_path")
+    root = Path(repository_root).resolve()
+    checkpoint = (root / relative_path).resolve()
+    try:
+        checkpoint.relative_to(root)
+    except ValueError as error:
+        raise ValueError("Checkpoint path escapes the repository root") from error
+    if not checkpoint.is_file():
+        raise FileNotFoundError(f"Frozen best checkpoint does not exist: {checkpoint}")
+    calculated = sha256_file(checkpoint)
+    if calculated != expected:
+        raise RuntimeError(
+            "Frozen best checkpoint bytes do not match best_checkpoint_sha256 in manifest"
+        )
+    return checkpoint, calculated
 
 
 def validate_frozen_manifests(manifests: list[dict[str, Any]]) -> None:

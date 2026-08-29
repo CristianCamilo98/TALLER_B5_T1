@@ -12,6 +12,10 @@ from generadores.daniel.src.final_pools import (
     pairing_max_abs_error,
     write_final_pool_manifest,
 )
+from generadores.daniel.src.frozen_runs import (
+    validate_sha256_hex,
+    verify_best_checkpoint_from_manifest,
+)
 from generadores.daniel.src.temporary_nvda_calibration import (
     CalibrationStats,
     TemporaryNVDACalibrator,
@@ -160,3 +164,38 @@ def test_manifest_summary_and_plots_are_constructible(tmp_path) -> None:
     figures = generate_final_pool_figures(summary, pools, visible, tmp_path / "figures")
     assert len(figures) == 3
     assert all(figure.is_file() and figure.stat().st_size > 0 for figure in figures.values())
+
+
+def test_sha256_format_rejects_wrong_length_and_non_hex() -> None:
+    valid = "a" * 64
+    assert validate_sha256_hex(valid) == valid
+    with pytest.raises(ValueError, match="64"):
+        validate_sha256_hex("a" * 65)
+    with pytest.raises(ValueError, match="hexadecimal"):
+        validate_sha256_hex("g" * 64)
+
+
+def test_real_frozen_checkpoints_match_authoritative_manifests() -> None:
+    import json
+
+    artifact_root = ROOT / "generadores/daniel/artifacts"
+    for seed in (42, 123, 2026):
+        manifest = json.loads(
+            (artifact_root / f"manifests/diffusion_seed{seed}_frozen.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        path, calculated = verify_best_checkpoint_from_manifest(ROOT, manifest)
+        assert path.is_file()
+        assert calculated == manifest["best_checkpoint_sha256"]
+
+
+def test_checkpoint_mismatch_fails_before_sampling(tmp_path) -> None:
+    checkpoint = tmp_path / "best_model.pt"
+    checkpoint.write_bytes(b"not-the-certified-checkpoint")
+    manifest = {
+        "best_checkpoint_path": checkpoint.name,
+        "best_checkpoint_sha256": "0" * 64,
+    }
+    with pytest.raises(RuntimeError, match="bytes do not match"):
+        verify_best_checkpoint_from_manifest(tmp_path, manifest)

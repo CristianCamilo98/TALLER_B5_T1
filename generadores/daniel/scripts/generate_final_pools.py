@@ -24,7 +24,10 @@ from generadores.daniel.src.final_pools import (  # noqa: E402
     write_final_pool_manifest,
     write_json_artifact,
 )
-from generadores.daniel.src.frozen_runs import sha256_file  # noqa: E402
+from generadores.daniel.src.frozen_runs import (  # noqa: E402
+    sha256_file,
+    verify_best_checkpoint_from_manifest,
+)
 from generadores.daniel.src.network import TemporalDenoiser  # noqa: E402
 from generadores.daniel.src.run_artifacts import (  # noqa: E402
     FROZEN_RUN_IDS,
@@ -52,11 +55,6 @@ BASE_MASTER_COMMIT = "eb66f836d4eaafa6e32cc204f7c720d1f0400e18"
 DONOR_TRAIN_SHA256 = "5f1e33f69b02bad86d89dcc2f67a1018cef68aaeacfbf72c310a1b7902fc268f"
 DONOR_VALIDATION_SHA256 = "134f51a2ac9e546bf1a2f21f4efbf56a62bf019a08de14209058563b0a88ae23"
 NORMALIZER_SHA256 = "fc81f1d25d68680e5f29af97d1d6b37d877e2524e41103154e51695f64a59b8f"
-CHECKPOINT_SHA256 = {
-    42: "3c6a4300ba525a306f71e23f0b6d2cd2cea1760fb9275662e199d67fc24dee82b",
-    123: "2a79cc662799b4ea08f19234208efb6df57f3bf0e3931b8bc3df435e53fb61a4",
-    2026: "f882a802d9b35958821fac3369b1648e69942d57e4bf0ad7e444b53b1fde8b5a3",
-}
 N_REQUESTED = 5000
 BATCH_SIZE = 256
 
@@ -71,7 +69,7 @@ def _relative(path: Path) -> str:
     return path.relative_to(REPOSITORY_ROOT).as_posix()
 
 
-def _load_sampler(seed: int, device: str) -> tuple[DDPMSampler, Path, dict]:
+def _load_sampler(seed: int, device: str) -> tuple[DDPMSampler, Path, dict, str]:
     artifact_root = REPOSITORY_ROOT / "generadores/daniel/artifacts"
     run_id = FROZEN_RUN_IDS[seed]
     training_manifest = read_manifest(artifact_root / "manifests" / f"{run_id}.json")
@@ -87,9 +85,9 @@ def _load_sampler(seed: int, device: str) -> tuple[DDPMSampler, Path, dict]:
     if training_manifest["validation_count"] != 380:
         raise RuntimeError("Frozen training manifest has an unexpected validation count")
     validate_frozen_effective_config(training_manifest["effective_config"], seed)
-    checkpoint_path = REPOSITORY_ROOT / training_manifest["best_checkpoint_path"]
-    if sha256_file(checkpoint_path) != CHECKPOINT_SHA256[seed]:
-        raise RuntimeError(f"Frozen best checkpoint hash mismatch for seed {seed}")
+    checkpoint_path, checkpoint_sha256 = verify_best_checkpoint_from_manifest(
+        REPOSITORY_ROOT, training_manifest
+    )
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     config = training_manifest["effective_config"]
     model_config = config["model"]
@@ -108,7 +106,7 @@ def _load_sampler(seed: int, device: str) -> tuple[DDPMSampler, Path, dict]:
         beta_start=diffusion_config["beta_start"],
         beta_end=diffusion_config["beta_end"],
     ).to(device)
-    return DDPMSampler(diffusion), checkpoint_path, training_manifest
+    return DDPMSampler(diffusion), checkpoint_path, training_manifest, checkpoint_sha256
 
 
 def main() -> None:
@@ -156,7 +154,9 @@ def main() -> None:
     write_json_artifact(calibration_payload, calibration_path)
     calibration_sha256 = sha256_file(calibration_path)
     calibrator = TemporaryNVDACalibrator(stats)
-    sampler, checkpoint_path, training_manifest = _load_sampler(seed, device)
+    sampler, checkpoint_path, training_manifest, checkpoint_sha256 = _load_sampler(
+        seed, device
+    )
 
     start = perf_counter()
     result = generate_accepted_pool(
@@ -207,7 +207,7 @@ def main() -> None:
         training_seed=seed,
         sampling_seed=seed,
         space="normalized",
-        checkpoint_sha256=CHECKPOINT_SHA256[seed],
+        checkpoint_sha256=checkpoint_sha256,
         calibration_stats_sha256=calibration_sha256,
         generation_commit=generation_sha,
     )
@@ -217,7 +217,7 @@ def main() -> None:
         training_seed=seed,
         sampling_seed=seed,
         space="nvda_like",
-        checkpoint_sha256=CHECKPOINT_SHA256[seed],
+        checkpoint_sha256=checkpoint_sha256,
         calibration_stats_sha256=calibration_sha256,
         generation_commit=generation_sha,
     )
@@ -230,7 +230,8 @@ def main() -> None:
         "generation_code_sha": generation_sha,
         "base_master_commit": BASE_MASTER_COMMIT,
         "checkpoint_path": _relative(checkpoint_path),
-        "checkpoint_sha256": CHECKPOINT_SHA256[seed],
+        "checkpoint_sha256": checkpoint_sha256,
+        "checkpoint_manifest_sha256": training_manifest["best_checkpoint_sha256"],
         "donor_train_sha256": DONOR_TRAIN_SHA256,
         "donor_validation_sha256": DONOR_VALIDATION_SHA256,
         "normalizer_sha256": training_manifest["normalizer_sha256"],
