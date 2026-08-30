@@ -7,10 +7,10 @@ Este repo deja listos paneles, features, ventanas y splits para que cada integra
 
 | Persona  | Modelo generativo |
 | -------- | ----------------- |
-| Marco    | VAE               |
+| Marco    | Time VAE          |
 | Cristian | GAN               |
 | Dani     | Diffusion         |
-| David    | TBD               |
+| David    | Normaflow         |
 
 
 **Estado actual:** preparación de datos **antes** de sintéticos = **cerrada** (`raw` → `clean` → `features-0.2.0` → `splits-0.1.0`).
