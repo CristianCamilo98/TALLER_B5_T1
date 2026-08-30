@@ -1,104 +1,132 @@
-# Taller B5-T1 — Synthetic NVDA Common Core
+# Generador B — VAE (Marco)
 
-Common core certificado para el experimento de ampliación sintética de NVDA.
-Esta rama contiene exclusivamente configuración, descarga, limpieza, splits
-diarios, features, ventanas y pruebas anti-leakage. **No implementa todavía**
-VAE, WGAN-GP, Diffusion, Gaussian Noise, Ridge ni evaluación downstream.
+TimeVAE (Desai et al., 2022) adaptado al problema de cold-start de NVDA: aprende
+de 10 semiconductores donors (2012-2021) y genera ventanas sintéticas calibradas
+a la escala de NVDA, para complementar sus 6 meses reales visibles.
 
-La única fuente de verdad metodológica es
-[`configs/experiment.yaml`](configs/experiment.yaml).
+## Arquitectura
 
-## Orden obligatorio del pipeline
+![Arquitectura](figures/arquitectura_vae.png)
 
-```text
-configs/experiment.yaml
-        │
-        ▼
-1. download_ohlcv_raw.py       snapshot OHLCV + manifest
-        │
-        ▼
-2. clean_ohlcv.py              tolerancia OHLC + quality report
-        │
-        ▼
-3. assign_splits.py            asignación temporal a NIVEL DIARIO
-        │
-        ▼
-4. build_features_windows.py   features DENTRO de cada bloque
-                                y después ventanas con stride oficial
-        │
-        ▼
-5. pytest                      certificación de fronteras y leakage
+Encoder: 2×(Conv1D → BatchNorm → ReLU → Dropout) → Dense(mu), Dense(logvar).
+Decoder: Dense → Reshape → 2×Conv1DTranspose → Cropping1D(0,3) (ajusta 68→65).
+`latent_dim=8`. Sin condicionante — a diferencia de un CVAE, aquí no hay
+variable exógena externa que mantener aparte de lo generado.
+
+## Datos
+
+| Split | Ventanas | Uso |
+|---|---:|---|
+| `donor_train` | 4910 | entrenamiento VAE |
+| `donor_validation` | 380 | early stopping |
+| `nvda_visible` | 62 | NVDA "cold-start" (jul-dic 2022) |
+| `nvda_full_history` (Oracle) | 2703 | referencia con historia completa |
+| `nvda_test` | 150 | hold-out real, 2023-2025, targets sin solape |
+
+NVDA nunca entra en `donor_train`/`donor_validation`.
+
+## Entrenamiento
+
+Huber loss + KL con free-bits (0.25 nats/dim), warmup de KL en 15 épocas,
+Adam lr=1e-3, early stopping (paciencia 10). Mejor época: 10, `val_recon=0.312`.
+
+![Loss](figures/loss_vae_donors.png)
+
+## Generación y calibración
+
+Se genera muestreando `z~N(0,1)` directamente (sin encoder) y decodificando.
+El resultado se recalibra (media/std) a los valores reales de NVDA visible,
+para que "patrón de donors + escala de NVDA". La calibración se calcula sobre
+los **126 días únicos** reconstruidos de `nvda_visible` (no sobre las 62
+ventanas aplanadas) — ver nota en Limitaciones.
+
+Sintético exportado en `outputs/nvda_synthetic_windows.parquet` (25000 ventanas).
+
+## Experimento: ¿ayuda el sintético con pocos datos reales?
+
+Mismo Ridge entrenado 5 veces (solo real, +25/50/75% sintético, Oracle),
+evaluado siempre contra `nvda_test` real. Media de 3 seeds:
+
+| Mezcla | RMSE |
+|---|---:|
+| 100% real (62 ventanas) | 1.4796 |
+| +25% sintético | 0.2749 |
+| +50% sintético | 0.2520 |
+| +75% sintético | 0.2395 |
+| Oracle (2703 reales) | 0.2248 |
+
+![RMSE vs sintético](figures/rmse_vs_sintetico.png)
+
+Con solo 62 ventanas reales el modelo generaliza muy mal (RMSE 1.48). Añadir
+sintético lo corrige de forma drástica y monótona, acercándose al Oracle
+según sube el ratio. Confirmado también a nivel de coeficientes: la
+similitud coseno de los pesos del Ridge frente al Oracle pasa de **0.26**
+(solo real) a **0.65** (50% sintético) — el sintético no solo baja el error,
+empuja a aprender la relación correcta.
+
+## Métricas de calidad
+
+- **Distribuciones marginales**: solapan razonablemente en las 3 variables.
+
+![Distribuciones](figures/dist_real_vs_sintetico.png)
+
+- **t-SNE**: solapamiento parcial, no total como en el paper original —
+  aparecen dos regiones sintéticas sin contrapartida real, probablemente
+  porque los donors cubren 10 años de regímenes de mercado y NVDA visible
+  es un único semestre.
+
+![t-SNE](figures/tsne_calidad.png)
+
+- **Discriminative score**: 0.105 (rango 0-0.15 del paper para un generador
+  que funciona razonablemente). La matriz de confusión muestra que el
+  clasificador confunde sobre todo lo *real* con sintético, no al revés —
+  coherente con el solapamiento parcial del t-SNE.
+
+![Clasificador](figures/clasificador_calidad.png)
+
+## Limitaciones
+
+- **Colapso de varianza no uniforme por canal**: `log_return` retiene solo
+  ~6% de la varianza de entrenamiento al generar (vs 43-57% en las otras
+  2 variables) — justo la variable más importante para el downstream.
+  Limitación conocida de los VAE al generar desde el prior, no del
+  entrenamiento en sí (con `z` real, la reconstrucción es buena).
+- La brecha train/validation en el entrenamiento no es sobreajuste: 2022
+  es el 2º año más volátil de la década en los donors (ligado a las subidas
+  de tipos de la Fed, -36% del índice SOX), y 2020 (dentro de train)
+  también reconstruye peor — mismo patrón, año atípico, no memorización.
+- Un bug de `free_bits` en la implementación Keras (el suelo se aplicaba al
+  KL total en vez de por dimensión) fue detectado y corregido; impacto
+  menor en el resultado final.
+- Un bug en la base de datos común (`nvda_visible` incluía ventanas cuyo
+  contexto se apoyaba en historia oculta) fue detectado, reportado, y
+  corregido por el equipo antes del experimento final.
+- **Corrección de calibración (detectada en revisión de equipo)**: la
+  calibración inicial promediaba sobre las 62 ventanas aplanadas (4030
+  posiciones), pesando los días centrales del semestre hasta 62x más que
+  los de los bordes (por el solapamiento de ventanas con stride=1). Se
+  corrigió calibrando sobre los 126 días únicos reales. El sesgo era
+  moderado (~9% en `log1p_volume`, marginal en las otras 2 variables) y no
+  afectó al resultado central del experimento de mezclas, pero sí mejoró
+  el discriminative score (0.158 → 0.105).
+
+## Trabajo futuro
+
+- Embedding de ticker o condicionante de régimen, para que el generador no
+  tenga que "adivinar" en qué tipo de año está la ventana.
+- Repetir el experimento de mezclas con más seeds para intervalos de
+  confianza más ajustados.
+
+## Reproducibilidad
+
+```powershell
+python -m generadores.marco.cargar_datos_compartidos
+python -m generadores.marco.entrenar_vae
+python -m generadores.marco.generar_sintetico
+python -m generadores.marco.exportar_sintetico
+python -m generadores.marco.experimento_mezclas
 ```
 
-Está prohibido construir ventanas globales y etiquetarlas posteriormente por
-`window_end_date`.
-
-## Contrato congelado
-
-| Elemento | Valor |
-|---|---|
-| Target | NVDA |
-| Donors | AMD, INTC, QCOM, AVGO, MU, TXN, ADI, MCHP, MRVL, NXPI |
-| Donor train | 2012-01-03..2021-12-31, stride 5 |
-| Donor validation | 2022-01-03..2022-12-30, stride 5 |
-| NVDA visible | 2022-07-01..2022-12-30, stride 1 |
-| Full-history benchmark | 2012-01-03..2022-12-30, stride 1 |
-| Test targets | 2023-01-03..2025-12-31, context 60, horizon 5, stride 5 |
-| Canales | log_return, log_high_low_range, log1p_volume |
-| Ventana | 65 × 3 |
-| Seeds futuras | 42, 123, 2026 |
-| Ratios futuros | 25 %, 50 %, 75 % |
-| Downstream futuro | Ridge alpha=1.0; contrato únicamente, no implementado |
-
-## Recuentos del snapshot certificado
-
-| Split | Ventanas | Stride |
-|---|---:|---:|
-| donor_train | 4.910 | 5 |
-| donor_validation | 380 | 5 |
-| nvda_visible | 62 | 1 |
-| nvda_full_history | 2.703 | 1 |
-| nvda_test (`test_index`) | 150 | 5 |
-
-Los 150 targets de test contienen exactamente cinco sesiones, no se solapan y
-están íntegramente dentro de 2023-01-03..2025-12-31.
-
-## Artefactos canónicos
-
-| Etapa | Artefactos |
-|---|---|
-| Raw | `data/raw/ohlcv_raw.*`, `download_manifest.json` |
-| Clean | `data/clean/ohlcv_clean.*`, `quality_report.csv`, manifest/checksums |
-| Split diario | `data/splits/daily_split_assignments.parquet`, reporte/manifest/checksums |
-| Features | `data/features/daily_features_by_split.parquet` |
-| Ventanas | `data/features/windows/{split}.parquet` |
-| Test común | `data/features/test_index.parquet` |
-| Certificación | `COMMON_CORE_CERTIFICATION.md`, `tests/` |
-
-Los artefactos globales pre-realineación se conservan localmente, fuera del
-pipeline canónico, en `data/legacy_pre_realignment/`.
-
-## Ejecutar sin volver a descargar
-
-```bash
-python scripts/download_ohlcv_raw.py --config configs/experiment.yaml --reuse-snapshot
-python scripts/clean_ohlcv.py --config configs/experiment.yaml
-python scripts/assign_splits.py --config configs/experiment.yaml
-python scripts/build_features_windows.py --config configs/experiment.yaml
-python -m pytest -q
-```
-
-Omitir `--reuse-snapshot` realiza una descarga nueva de yfinance.
-
-## Política de checksums
-
-Los SHA256 certifican el snapshot observado por cada manifest. Cada etapa
-verifica que su entrada coincide con el manifest inmediatamente anterior. Los
-scripts no contienen hashes metodológicos hardcodeados y una descarga futura
-válida puede producir un SHA diferente: al regenerar la cadena se genera un
-nuevo linaje de manifests.
-
-## Estado
-
-Common core `CERTIFIED` para el snapshot observado. La evidencia exacta y las condiciones de
-certificación están en [`COMMON_CORE_CERTIFICATION.md`](COMMON_CORE_CERTIFICATION.md).
+Seeds: 42, 123, 2026 (experimento de mezclas). `scaler_donors.npz` y los
+`.npz` de caché son regenerables, no están versionados (ver `.gitignore`).
+El sintético final sí se versiona, en `outputs/nvda_synthetic_windows.parquet`.

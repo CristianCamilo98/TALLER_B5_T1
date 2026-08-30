@@ -1,4 +1,4 @@
-﻿import numpy as np
+import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -6,7 +6,7 @@ from sklearn.linear_model import Ridge
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error
 
-from downstream_features import build_supervised_pairs
+from generadores.marco.downstream_features import build_supervised_pairs
 
 real_windows = np.load("cache_nvda_visible_shared.npz")["values"]
 synth_windows = np.load("nvda_sintetico_calibrado.npz")["values"]

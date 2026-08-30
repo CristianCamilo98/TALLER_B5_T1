@@ -1,9 +1,10 @@
 import numpy as np
 import tensorflow as tf
 from generadores.marco.architecture import TimeVAE
+from generadores.marco.calibracion_diaria import unique_daily_values
 
 LATENT_DIM = 8
-N_SAMPLES = 25000   # volumen alto a propósito: el equipo decidirá luego cuántas
+N_SAMPLES = 5000   # volumen alto a propósito: el equipo decidirá luego cuántas
                      # usar en cada ratio de mezcla (25/50/75%); mejor generar de más
                      # ahora que quedarse cortos y tener que repetir el paso
 
@@ -28,24 +29,27 @@ x_generated_scaled = model.decoder(z_sample, training=False).numpy()
 # --- Calibración a NVDA ---
 # El generador aprendió el PATRÓN de los semiconductores donors, pero su escala
 # (nivel medio, dispersión) es la de "un semiconductor genérico", no la de NVDA
-# en concreto. Reescalamos usando los 6 meses reales de NVDA (los válidos, tras
-# tu propio fix de la fecha de inicio) para que "patrón de donors + escala de NVDA"
-# -- exactamente la receta que el equipo acordó desde el diseño original.
-print("\nCalibrando muestras a la distribución de NVDA (jul-dic 2022, ventanas válidas)...")
-nvda_visible = np.load("cache_nvda_visible_shared.npz")["values"]
+# en concreto. Reescalamos usando los 126 DÍAS ÚNICOS reales de NVDA (jul-dic 2022)
+# -- NO sobre las 62 ventanas aplanadas (4030 posiciones), porque eso pesaría
+# los días del centro del semestre hasta 62 veces más que los de los bordes
+# (cada ventana solapa 64 de sus 65 días con la siguiente). Reconstruimos la
+# serie diaria real antes de calcular media/std, tal y como señaló el compañero.
+print("\nCalibrando muestras a la distribución de NVDA (126 días únicos, jul-dic 2022)...")
+nvda_daily = unique_daily_values("data/features/windows/nvda_visible.parquet")
+print(f"  -> días únicos reconstruidos: {nvda_daily.shape}")
 
-mean_nvda = np.mean(nvda_visible, axis=(0, 1))
-std_nvda = np.std(nvda_visible, axis=(0, 1))
+mean_nvda = nvda_daily.mean(axis=0)
+std_nvda = nvda_daily.std(axis=0, ddof=0)
 std_nvda[std_nvda == 0] = 1e-8
 
 mean_gen = np.mean(x_generated_scaled, axis=(0, 1))
 std_gen = np.std(x_generated_scaled, axis=(0, 1))
 std_gen[std_gen == 0] = 1e-8
 
-print(f"  -> Media NVDA real:   {mean_nvda}")
-print(f"  -> Std NVDA real:     {std_nvda}")
-print(f"  -> Media generado:    {mean_gen}")
-print(f"  -> Std generado:      {std_gen}")
+print(f"  -> Media NVDA real (126 días únicos): {mean_nvda}")
+print(f"  -> Std NVDA real (126 días únicos):   {std_nvda}")
+print(f"  -> Media generado:                     {mean_gen}")
+print(f"  -> Std generado:                       {std_gen}")
 
 x_synthetic_nvda = ((x_generated_scaled - mean_gen) / std_gen) * std_nvda + mean_nvda
 
