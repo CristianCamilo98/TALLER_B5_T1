@@ -1,0 +1,23 @@
+{
+  "generator": "marco_vae",
+  "seed": 42,
+  "n_samples": 5000,
+  "window_length": 65,
+  "channels": [
+    "log_return",
+    "log_high_low_range",
+    "log1p_volume"
+  ],
+  "space": "z-score sobre donor_train (ddof=0), SIN calibrar a NVDA",
+  "scaler_mean": [
+    0.0008114035590551794,
+    0.02602413110435009,
+    16.06092643737793
+  ],
+  "scaler_std": [
+    0.023512789979577065,
+    0.016723208129405975,
+    1.0932406187057495
+  ],
+  "purpose": "comparacion entre generadores (VAE/GAN/Diffusion) contra donor_train/donor_validation, antes de calibracion a NVDA"
+}

@@ -26,6 +26,13 @@ z_sample = tf.random.normal(shape=(N_SAMPLES, LATENT_DIM))
 # de BatchNorm (no las de un mini-batch) -- imprescindible en inferencia real.
 x_generated_scaled = model.decoder(z_sample, training=False).numpy()
 
+# Guardamos TAMBIÉN la versión sin calibrar (espacio escalado de donor_train).
+# Sirve para comparar el sintético directamente contra los donors, separando
+# "¿el VAE aprendió bien su propia distribución?" de "¿tiene sentido la
+# calibración a NVDA?" -- son dos preguntas distintas.
+np.savez_compressed("synthetic_scaled_raw.npz", values=x_generated_scaled.astype(np.float32))
+print("Guardado (sin calibrar, espacio escalado): synthetic_scaled_raw.npz")
+
 # --- Calibración a NVDA ---
 # El generador aprendió el PATRÓN de los semiconductores donors, pero su escala
 # (nivel medio, dispersión) es la de "un semiconductor genérico", no la de NVDA
