@@ -18,7 +18,7 @@ from generadores.daniel.src.data_adapter import load_donor_windows  # noqa: E402
 from generadores.daniel.src.diffusion import GaussianDiffusion  # noqa: E402
 from generadores.daniel.src.network import TemporalDenoiser  # noqa: E402
 from generadores.daniel.src.temporary_normalizer import (  # noqa: E402
-    TemporaryTickerChannelNormalizer,
+    GlobalChannelNormalizer,
 )
 from generadores.daniel.src.trainer import tiny_overfit_diagnostic  # noqa: E402
 
@@ -31,9 +31,11 @@ def main() -> None:
         torch.set_num_threads(min(4, torch.get_num_threads()))
     config_path = REPOSITORY_ROOT / "generadores/daniel/config/diffusion.yaml"
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-    train = load_donor_windows("donor_train", REPOSITORY_ROOT)
-    normalizer = TemporaryTickerChannelNormalizer().fit(train.tensor, train.tickers)
-    normalized = normalizer.transform(train.tensor, train.tickers)
+    train = load_donor_windows(
+        "donor_train", REPOSITORY_ROOT, dtype=torch.float64
+    )
+    normalizer = GlobalChannelNormalizer().fit(train.tensor)
+    normalized = normalizer.transform(train.tensor)
 
     model_config = config["model"]
     model = TemporalDenoiser(

@@ -25,25 +25,35 @@ def main() -> None:
     seeds = (42, 123, 2026)
     manifests = [
         json.loads(
-            (artifact_root / f"manifests/diffusion_seed{seed}_final_pool.json").read_text(
+            (
+                artifact_root
+                / f"manifests/diffusion_seed{seed}_global_channel_final_pool.json"
+            ).read_text(
                 encoding="utf-8"
             )
         )
         for seed in seeds
     ]
     summary = build_final_pool_summary(manifests)
-    summary_path = artifact_root / "manifests/diffusion_final_pools_summary.csv"
+    summary_path = (
+        artifact_root / "manifests/diffusion_global_channel_final_pools_summary.csv"
+    )
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     summary.to_csv(summary_path, index=False)
     pools = {
         seed: load_final_pool(
-            artifact_root / f"samples/diffusion_seed{seed}_nvda_like_5000.npz"
+            artifact_root
+            / f"samples/diffusion_seed{seed}_global_channel_nvda_like_5000.npz"
         )["samples"].numpy()
         for seed in seeds
     }
     visible = load_nvda_visible_daily(REPOSITORY_ROOT)
     figures = generate_final_pool_figures(
-        summary, pools, visible, artifact_root / "figures"
+        summary,
+        pools,
+        visible,
+        artifact_root / "figures",
+        prefix="diffusion_global_channel",
     )
     print(summary.to_string(index=False))
     print(f"summary={summary_path}")

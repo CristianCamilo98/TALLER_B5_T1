@@ -25,13 +25,13 @@ from generadores.daniel.src.reproducibility import set_seed  # noqa: E402
 from generadores.daniel.src.run_artifacts import (  # noqa: E402
     FROZEN_TRAINING_SEEDS,
     frozen_config_for_seed,
-    frozen_run_id,
+    global_channel_run_id,
     validate_frozen_baseline,
     write_history,
     write_manifest,
 )
 from generadores.daniel.src.temporary_normalizer import (  # noqa: E402
-    TemporaryTickerChannelNormalizer,
+    GlobalChannelNormalizer,
 )
 from generadores.daniel.src.trainer import DiffusionTrainer, TrainerConfig  # noqa: E402
 from generadores.daniel.src.validation import CHANNEL_ORDER  # noqa: E402
@@ -85,7 +85,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, choices=FROZEN_TRAINING_SEEDS, default=42)
     parser.add_argument("--run-id")
     args = parser.parse_args()
-    expected_run_id = frozen_run_id(args.seed)
+    expected_run_id = global_channel_run_id(args.seed)
     run_id = args.run_id or expected_run_id
     if run_id != expected_run_id:
         raise ValueError(f"Seed {args.seed} requires run_id {expected_run_id!r}")
@@ -100,7 +100,11 @@ def main() -> None:
     environment = set_seed(seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    train, validation = load_canonical_donor_tensors(REPOSITORY_ROOT)
+    # Scaler fit must see the original parquet precision. The normalized DDPM
+    # tensors are converted to float32 by GlobalChannelNormalizer.transform.
+    train, validation = load_canonical_donor_tensors(
+        REPOSITORY_ROOT, dtype=torch.float64
+    )
     if train.input_sha256 != DONOR_TRAIN_SHA256:
         raise RuntimeError("donor_train hash differs from the frozen baseline")
     if validation.input_sha256 != DONOR_VALIDATION_SHA256:
@@ -112,17 +116,15 @@ def main() -> None:
     if manifest_raw_hash != CANONICAL_RAW_SHA256:
         raise RuntimeError("Raw manifest does not identify the canonical snapshot")
 
-    normalizer = TemporaryTickerChannelNormalizer().fit(train.tensor, train.tickers)
-    normalized_train = normalizer.transform(train.tensor, train.tickers)
-    normalized_validation = normalizer.transform(validation.tensor, validation.tickers)
-    reconstructed = normalizer.inverse_transform(normalized_train, train.tickers)
+    normalizer = GlobalChannelNormalizer(
+        std_threshold=float(config["normalization"]["std_threshold"])
+    ).fit(train.tensor)
+    normalized_train = normalizer.transform(train.tensor)
+    normalized_validation = normalizer.transform(validation.tensor)
+    reconstructed = normalizer.inverse_transform(normalized_train)
     roundtrip_error = float(torch.max(torch.abs(reconstructed - train.tensor)))
     scaler_state = normalizer.state_dict()
-    minimum_std = min(
-        value
-        for parameters in scaler_state["parameters"].values()
-        for value in parameters["std"]
-    )
+    minimum_std = min(scaler_state["std"])
 
     artifact_root = REPOSITORY_ROOT / "generadores/daniel/artifacts"
     checkpoint_directory = artifact_root / "checkpoints" / run_id
@@ -226,7 +228,8 @@ def main() -> None:
         "channels": list(CHANNEL_ORDER),
         "train_dates": _date_range(train.metadata),
         "validation_dates": _date_range(validation.metadata),
-        "normalization_type": "temporary_ticker_channel_zscore_train_only",
+        "normalization_type": "global_channel_zscore_train_only_float64_fit",
+        "normalization_contract": scaler_state,
         "normalizer_path": normalizer_path.relative_to(REPOSITORY_ROOT).as_posix(),
         "normalizer_sha256": normalizer_sha256,
         "normalizer_minimum_std": minimum_std,

@@ -17,26 +17,26 @@ if str(REPOSITORY_ROOT) not in sys.path:
 
 from generadores.daniel.src.frozen_runs import (  # noqa: E402
     build_frozen_summary,
-    load_frozen_manifests,
+    load_global_channel_manifests,
     write_frozen_summary,
 )
 from generadores.daniel.src.run_artifacts import (  # noqa: E402
-    FROZEN_RUN_IDS,
     FROZEN_TRAINING_SEEDS,
+    GLOBAL_CHANNEL_RUN_IDS,
     read_history,
 )
 
 
 def main() -> None:
     artifact_root = REPOSITORY_ROOT / "generadores/daniel/artifacts"
-    manifests = load_frozen_manifests(artifact_root)
-    summary = build_frozen_summary(manifests)
-    summary_path = artifact_root / "histories/diffusion_frozen_seeds_summary.csv"
+    manifests = load_global_channel_manifests(artifact_root)
+    summary = build_frozen_summary(manifests, run_ids=GLOBAL_CHANNEL_RUN_IDS)
+    summary_path = artifact_root / "histories/diffusion_global_channel_seeds_summary.csv"
     write_frozen_summary(summary, summary_path)
 
     figure, axis = plt.subplots(figsize=(9, 5.5))
     for seed in FROZEN_TRAINING_SEEDS:
-        run_id = FROZEN_RUN_IDS[seed]
+        run_id = GLOBAL_CHANNEL_RUN_IDS[seed]
         history = read_history(artifact_root / "histories" / f"{run_id}.csv")
         axis.plot(
             history["epoch"],
@@ -46,11 +46,11 @@ def main() -> None:
         )
     axis.set_xlabel("Epoch")
     axis.set_ylabel("Deterministic validation epsilon-prediction MSE")
-    axis.set_title("Frozen DDPM validation loss across training seeds")
+    axis.set_title("Global-normalized DDPM validation loss across training seeds")
     axis.grid(alpha=0.25)
     axis.legend()
     figure.tight_layout()
-    figure_path = artifact_root / "figures/diffusion_frozen_seeds_validation_loss.png"
+    figure_path = artifact_root / "figures/diffusion_global_channel_seeds_validation_loss.png"
     figure_path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(figure_path, dpi=160)
     plt.close(figure)

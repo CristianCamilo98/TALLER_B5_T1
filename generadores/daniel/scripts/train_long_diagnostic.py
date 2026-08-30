@@ -30,7 +30,7 @@ from generadores.daniel.src.run_artifacts import (  # noqa: E402
     write_manifest,
 )
 from generadores.daniel.src.temporary_normalizer import (  # noqa: E402
-    TemporaryTickerChannelNormalizer,
+    GlobalChannelNormalizer,
 )
 from generadores.daniel.src.trainer import DiffusionTrainer, TrainerConfig  # noqa: E402
 from generadores.daniel.src.training_diagnostics import (  # noqa: E402
@@ -44,9 +44,6 @@ from generadores.daniel.src.validation import CHANNEL_ORDER  # noqa: E402
 CANONICAL_RAW_SHA256 = "6ecd4c929ecd3bdca32c646aec8210a7757b566843a90102f21bd86d2da036d6"
 DONOR_TRAIN_SHA256 = "5f1e33f69b02bad86d89dcc2f67a1018cef68aaeacfbf72c310a1b7902fc268f"
 DONOR_VALIDATION_SHA256 = "134f51a2ac9e546bf1a2f21f4efbf56a62bf019a08de14209058563b0a88ae23"
-FROZEN_NORMALIZER_SHA256 = "fc81f1d25d68680e5f29af97d1d6b37d877e2524e41103154e51695f64a59b8f"
-FROZEN_BEST_EPOCH = 7
-FROZEN_BEST_VALIDATION_LOSS = 0.6460293034712473
 
 
 def _git(*arguments: str) -> str:
@@ -112,34 +109,36 @@ def main() -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     started = datetime.now(timezone.utc)
 
-    train, validation = load_canonical_donor_tensors(REPOSITORY_ROOT)
+    train, validation = load_canonical_donor_tensors(
+        REPOSITORY_ROOT, dtype=torch.float64
+    )
     if train.input_sha256 != DONOR_TRAIN_SHA256:
         raise RuntimeError("donor_train hash differs from the certified input")
     if validation.input_sha256 != DONOR_VALIDATION_SHA256:
         raise RuntimeError("donor_validation hash differs from the certified input")
 
     artifact_root = REPOSITORY_ROOT / "generadores/daniel/artifacts"
-    frozen_manifest_path = artifact_root / "manifests/diffusion_seed42_frozen.json"
+    frozen_manifest_path = (
+        artifact_root / "manifests/diffusion_seed42_global_channel.json"
+    )
     frozen_manifest = json.loads(frozen_manifest_path.read_text(encoding="utf-8"))
     if frozen_manifest["canonical_raw_sha256"] != CANONICAL_RAW_SHA256:
         raise RuntimeError("Frozen manifest does not identify the canonical raw snapshot")
     normalizer_path = REPOSITORY_ROOT / frozen_manifest["normalizer_path"]
-    if (
-        frozen_manifest["normalizer_sha256"] != FROZEN_NORMALIZER_SHA256
-        or sha256_file(normalizer_path) != FROZEN_NORMALIZER_SHA256
-    ):
+    normalizer_sha256 = frozen_manifest["normalizer_sha256"]
+    if sha256_file(normalizer_path) != normalizer_sha256:
         raise RuntimeError("Frozen train-only normalizer hash mismatch")
-    normalizer = TemporaryTickerChannelNormalizer.load_json(normalizer_path)
-    normalized_train = normalizer.transform(train.tensor, train.tickers)
-    normalized_validation = normalizer.transform(validation.tensor, validation.tickers)
+    normalizer = GlobalChannelNormalizer.load_json(normalizer_path)
+    normalized_train = normalizer.transform(train.tensor)
+    normalized_validation = normalizer.transform(validation.tensor)
 
     run_id = LONG_TRAINING_RUN_ID
     checkpoint_directory = artifact_root / "checkpoints" / run_id
     history_path = artifact_root / "histories" / f"{run_id}.csv"
     manifest_path = artifact_root / "manifests" / f"{run_id}.json"
-    full_plot = artifact_root / "figures/diffusion_seed42_long_training_full.png"
-    zoom_plot = artifact_root / "figures/diffusion_seed42_long_training_zoom.png"
-    comparison_plot = artifact_root / "figures/diffusion_seed42_frozen_vs_long_training.png"
+    full_plot = artifact_root / "figures/diffusion_seed42_global_channel_long_training_full.png"
+    zoom_plot = artifact_root / "figures/diffusion_seed42_global_channel_long_training_zoom.png"
+    comparison_plot = artifact_root / "figures/diffusion_seed42_global_channel_frozen_vs_long_training.png"
 
     batch_size = int(config["training"]["batch_size"])
     loader_generator = torch.Generator().manual_seed(seed)
@@ -211,7 +210,7 @@ def main() -> None:
         history_path, full_plot, zoom_plot, run_id=run_id
     )
     comparison = plot_frozen_vs_long(
-        artifact_root / "histories/diffusion_seed42_frozen.csv",
+        artifact_root / "histories/diffusion_seed42_global_channel.csv",
         history_path,
         comparison_plot,
     )
@@ -234,9 +233,9 @@ def main() -> None:
         "channels": list(CHANNEL_ORDER),
         "train_dates": _date_range(train.metadata),
         "validation_dates": _date_range(validation.metadata),
-        "normalization_type": "temporary_ticker_channel_zscore_train_only",
+        "normalization_type": "global_channel_zscore_train_only_float64_fit",
         "normalizer_path": normalizer_path.relative_to(REPOSITORY_ROOT).as_posix(),
-        "normalizer_sha256": FROZEN_NORMALIZER_SHA256,
+        "normalizer_sha256": normalizer_sha256,
         "effective_config": config,
         "frozen_reference_config": frozen_config,
         "approved_config_differences": {
@@ -268,8 +267,8 @@ def main() -> None:
             "frozen_vs_long": comparison_plot.relative_to(REPOSITORY_ROOT).as_posix(),
         },
         "frozen_comparison": {
-            "frozen_best_epoch": FROZEN_BEST_EPOCH,
-            "frozen_best_validation_loss": FROZEN_BEST_VALIDATION_LOSS,
+            "frozen_best_epoch": frozen_manifest["best_epoch"],
+            "frozen_best_validation_loss": frozen_manifest["best_validation_loss"],
             **comparison,
             "improved": comparison["delta_best_validation_loss"] < 0,
             "automatic_replacement_permitted": False,

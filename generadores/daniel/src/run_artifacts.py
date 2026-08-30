@@ -77,6 +77,16 @@ FROZEN_BASELINE = {
         "max_epochs": 200,
         "early_stopping_patience": 20,
     },
+    "normalization": {
+        "type": "global_channel_zscore",
+        "fit_split": "donor_train",
+        "fit_axes": [0, 1],
+        "fit_dtype": "float64",
+        "output_dtype": "float32",
+        "ddof": 0,
+        "std_threshold": 0.00000001,
+        "zero_variance_replacement": 1.0,
+    },
     "reproducibility": {"seed": 42, "validation_seed": 424242},
 }
 
@@ -87,7 +97,13 @@ FROZEN_RUN_IDS = {
     2026: "diffusion_seed2026_frozen",
 }
 
-LONG_TRAINING_RUN_ID = "diffusion_seed42_long_training_diagnostic"
+GLOBAL_CHANNEL_RUN_IDS = {
+    42: "diffusion_seed42_global_channel",
+    123: "diffusion_seed123_global_channel",
+    2026: "diffusion_seed2026_global_channel",
+}
+
+LONG_TRAINING_RUN_ID = "diffusion_seed42_global_channel_long_training_diagnostic"
 LONG_TRAINING_MAX_EPOCHS = 300
 LONG_TRAINING_PATIENCE = 30
 
@@ -125,6 +141,15 @@ def validate_frozen_effective_config(config: dict[str, Any], seed: int) -> None:
 def frozen_run_id(seed: int) -> str:
     try:
         return FROZEN_RUN_IDS[int(seed)]
+    except (KeyError, ValueError) as error:
+        raise ValueError(f"Training seed must be one of {FROZEN_TRAINING_SEEDS}") from error
+
+
+def global_channel_run_id(seed: int) -> str:
+    """Return the non-overwriting run ID for current global-normalized runs."""
+
+    try:
+        return GLOBAL_CHANNEL_RUN_IDS[int(seed)]
     except (KeyError, ValueError) as error:
         raise ValueError(f"Training seed must be one of {FROZEN_TRAINING_SEEDS}") from error
 

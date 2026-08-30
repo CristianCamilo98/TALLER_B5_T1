@@ -19,7 +19,7 @@ from generadores.daniel.src.network import TemporalDenoiser  # noqa: E402
 from generadores.daniel.src.reproducibility import set_seed  # noqa: E402
 from generadores.daniel.src.sampler import DDPMSampler  # noqa: E402
 from generadores.daniel.src.temporary_normalizer import (  # noqa: E402
-    TemporaryTickerChannelNormalizer,
+    GlobalChannelNormalizer,
 )
 from generadores.daniel.src.validation import validate_window_tensor  # noqa: E402
 
@@ -36,10 +36,12 @@ def main() -> None:
         torch.set_num_threads(min(4, torch.get_num_threads()))
     environment = set_seed(seed)
 
-    train, validation = load_canonical_donor_tensors(REPOSITORY_ROOT)
-    normalizer = TemporaryTickerChannelNormalizer().fit(train.tensor, train.tickers)
-    normalized_train = normalizer.transform(train.tensor, train.tickers)
-    normalized_validation = normalizer.transform(validation.tensor, validation.tickers)
+    train, validation = load_canonical_donor_tensors(
+        REPOSITORY_ROOT, dtype=torch.float64
+    )
+    normalizer = GlobalChannelNormalizer().fit(train.tensor)
+    normalized_train = normalizer.transform(train.tensor)
+    normalized_validation = normalizer.transform(validation.tensor)
     validate_window_tensor(normalized_train, expected_count=4910, name="normalized_train")
     validate_window_tensor(
         normalized_validation, expected_count=380, name="normalized_validation"
@@ -90,6 +92,9 @@ def main() -> None:
         "environment": environment,
         "train_shape": list(train.tensor.shape),
         "validation_shape": list(validation.tensor.shape),
+        "normalizer_mean": normalizer.mean.tolist(),
+        "normalizer_std": normalizer.std.tolist(),
+        "normalized_dtype": str(normalized_train.dtype),
         "forward_shape": list(forward.shape),
         "loss": float(loss.detach()),
         "backward": "PASS",

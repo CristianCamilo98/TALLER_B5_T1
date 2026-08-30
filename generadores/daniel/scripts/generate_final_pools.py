@@ -30,8 +30,8 @@ from generadores.daniel.src.frozen_runs import (  # noqa: E402
 )
 from generadores.daniel.src.network import TemporalDenoiser  # noqa: E402
 from generadores.daniel.src.run_artifacts import (  # noqa: E402
-    FROZEN_RUN_IDS,
     FROZEN_TRAINING_SEEDS,
+    GLOBAL_CHANNEL_RUN_IDS,
     read_manifest,
     validate_frozen_effective_config,
 )
@@ -50,11 +50,8 @@ from generadores.daniel.src.temporary_nvda_calibration import (  # noqa: E402
 from generadores.daniel.src.validation import CHANNEL_ORDER  # noqa: E402
 
 
-FROZEN_TRAINING_SHA = "b4db7a9c894598012c1574a64cccccabef14b89d"
-BASE_MASTER_COMMIT = "eb66f836d4eaafa6e32cc204f7c720d1f0400e18"
 DONOR_TRAIN_SHA256 = "5f1e33f69b02bad86d89dcc2f67a1018cef68aaeacfbf72c310a1b7902fc268f"
 DONOR_VALIDATION_SHA256 = "134f51a2ac9e546bf1a2f21f4efbf56a62bf019a08de14209058563b0a88ae23"
-NORMALIZER_SHA256 = "fc81f1d25d68680e5f29af97d1d6b37d877e2524e41103154e51695f64a59b8f"
 N_REQUESTED = 5000
 BATCH_SIZE = 256
 
@@ -71,15 +68,14 @@ def _relative(path: Path) -> str:
 
 def _load_sampler(seed: int, device: str) -> tuple[DDPMSampler, Path, dict, str]:
     artifact_root = REPOSITORY_ROOT / "generadores/daniel/artifacts"
-    run_id = FROZEN_RUN_IDS[seed]
+    run_id = GLOBAL_CHANNEL_RUN_IDS[seed]
     training_manifest = read_manifest(artifact_root / "manifests" / f"{run_id}.json")
-    if training_manifest["git_commit"] != FROZEN_TRAINING_SHA:
-        raise RuntimeError("Training manifest does not identify frozen training code")
-    if training_manifest["normalizer_sha256"] != NORMALIZER_SHA256:
-        raise RuntimeError("Training manifest normalizer hash mismatch")
+    if training_manifest["normalization_type"] != "global_channel_zscore_train_only_float64_fit":
+        raise RuntimeError("Training manifest does not identify global-channel normalization")
+    expected_normalizer_sha256 = training_manifest["normalizer_sha256"]
     normalizer_path = REPOSITORY_ROOT / training_manifest["normalizer_path"]
-    if sha256_file(normalizer_path) != NORMALIZER_SHA256:
-        raise RuntimeError("Frozen normalizer artifact hash mismatch")
+    if sha256_file(normalizer_path) != expected_normalizer_sha256:
+        raise RuntimeError("Global-channel normalizer artifact hash mismatch")
     if training_manifest["train_count"] != 4910:
         raise RuntimeError("Frozen training manifest has an unexpected train count")
     if training_manifest["validation_count"] != 380:
@@ -118,8 +114,6 @@ def main() -> None:
     if _git("status", "--porcelain"):
         raise RuntimeError("Final generation requires a clean versioned worktree")
     generation_sha = _git("rev-parse", "HEAD")
-    if not _git("merge-base", "--is-ancestor", FROZEN_TRAINING_SHA, generation_sha) == "":
-        raise RuntimeError("Frozen training code is not an ancestor of generation code")
     if not torch.cuda.is_available():
         torch.set_num_threads(min(4, torch.get_num_threads()))
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -138,7 +132,9 @@ def main() -> None:
     visible = load_nvda_visible_daily(REPOSITORY_ROOT)
     stats = calculate_calibration_stats(visible)
     artifact_root = REPOSITORY_ROOT / "generadores/daniel/artifacts"
-    calibration_path = artifact_root / "manifests/nvda_visible_calibration_stats.json"
+    calibration_path = (
+        artifact_root / "manifests/nvda_visible_calibration_stats_global_channel.json"
+    )
     calibration_payload = {
         "source_path": NVDA_VISIBLE_SOURCE.as_posix(),
         "source_sha256": NVDA_VISIBLE_SOURCE_SHA256,
@@ -157,6 +153,9 @@ def main() -> None:
     sampler, checkpoint_path, training_manifest, checkpoint_sha256 = _load_sampler(
         seed, device
     )
+    training_sha = training_manifest["git_commit"]
+    if _git("merge-base", "--is-ancestor", training_sha, generation_sha) != "":
+        raise RuntimeError("Global-channel training code is not an ancestor of generation code")
 
     start = perf_counter()
     result = generate_accepted_pool(
@@ -199,8 +198,12 @@ def main() -> None:
     }
 
     sample_directory = artifact_root / "samples"
-    normalized_path = sample_directory / f"diffusion_seed{seed}_normalized_5000.npz"
-    calibrated_path = sample_directory / f"diffusion_seed{seed}_nvda_like_5000.npz"
+    normalized_path = (
+        sample_directory / f"diffusion_seed{seed}_global_channel_normalized_5000.npz"
+    )
+    calibrated_path = (
+        sample_directory / f"diffusion_seed{seed}_global_channel_nvda_like_5000.npz"
+    )
     normalized_hash = save_final_pool(
         normalized_path,
         normalized,
@@ -222,13 +225,13 @@ def main() -> None:
         generation_commit=generation_sha,
     )
     manifest = {
-        "run_id": f"diffusion_seed{seed}_final_pool",
+        "run_id": f"diffusion_seed{seed}_global_channel_final_pool",
         "model": "diffusion",
         "training_seed": seed,
         "sampling_seed": seed,
-        "frozen_training_sha": FROZEN_TRAINING_SHA,
+        "frozen_training_sha": training_sha,
         "generation_code_sha": generation_sha,
-        "base_master_commit": BASE_MASTER_COMMIT,
+        "base_master_commit": training_manifest["base_master_commit"],
         "checkpoint_path": _relative(checkpoint_path),
         "checkpoint_sha256": checkpoint_sha256,
         "checkpoint_manifest_sha256": training_manifest["best_checkpoint_sha256"],
@@ -276,7 +279,11 @@ def main() -> None:
         "NVDA_test_used": False,
         "downstream_used": False,
     }
-    manifest_path = artifact_root / "manifests" / f"diffusion_seed{seed}_final_pool.json"
+    manifest_path = (
+        artifact_root
+        / "manifests"
+        / f"diffusion_seed{seed}_global_channel_final_pool.json"
+    )
     write_final_pool_manifest(manifest, manifest_path)
     print(json.dumps(manifest, indent=2), flush=True)
 

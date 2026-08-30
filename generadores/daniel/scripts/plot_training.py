@@ -54,7 +54,7 @@ def plot_training(history_path: Path, output_path: Path, *, run_id: str | None =
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--run-id", default="diffusion_seed42_frozen")
+    parser.add_argument("--run-id", default="diffusion_seed42_global_channel")
     parser.add_argument("--history", type=Path)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()

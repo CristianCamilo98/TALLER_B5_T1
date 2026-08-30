@@ -1,4 +1,4 @@
-"""Verify checkpoints, sanity sampling, and seed-42 baseline reproduction."""
+"""Verify checkpoints and sanity sampling for global-normalized runs."""
 
 from __future__ import annotations
 
@@ -14,14 +14,15 @@ if str(REPOSITORY_ROOT) not in sys.path:
 
 from generadores.daniel.src.diffusion import GaussianDiffusion  # noqa: E402
 from generadores.daniel.src.frozen_runs import (  # noqa: E402
-    histories_numerically_equal,
-    load_frozen_manifests,
-    model_states_equal,
+    load_global_channel_manifests,
     sha256_file,
     validate_frozen_manifests,
 )
 from generadores.daniel.src.network import TemporalDenoiser  # noqa: E402
-from generadores.daniel.src.run_artifacts import FROZEN_TRAINING_SEEDS  # noqa: E402
+from generadores.daniel.src.run_artifacts import (  # noqa: E402
+    FROZEN_TRAINING_SEEDS,
+    GLOBAL_CHANNEL_RUN_IDS,
+)
 from generadores.daniel.src.sampler import DDPMSampler  # noqa: E402
 
 
@@ -51,12 +52,10 @@ def main() -> None:
         torch.set_num_threads(min(4, torch.get_num_threads()))
     device = "cuda" if torch.cuda.is_available() else "cpu"
     artifact_root = REPOSITORY_ROOT / "generadores/daniel/artifacts"
-    manifests = load_frozen_manifests(artifact_root)
-    validate_frozen_manifests(manifests)
+    manifests = load_global_channel_manifests(artifact_root)
+    validate_frozen_manifests(manifests, run_ids=GLOBAL_CHANNEL_RUN_IDS)
     verification: dict = {"device": device, "runs": {}}
 
-    frozen_seed42_payload = None
-    frozen_seed42_samples = None
     for manifest in manifests:
         seed = int(manifest["training_seed"])
         best_path = REPOSITORY_ROOT / manifest["best_checkpoint_path"]
@@ -82,39 +81,7 @@ def main() -> None:
             "sample_finite": True,
             "sample_reproducible": True,
         }
-        if seed == 42:
-            frozen_seed42_payload = best_payload
-            frozen_seed42_samples = first
-
-    baseline_checkpoint = artifact_root / "checkpoints/diffusion_seed42_baseline/best_model.pt"
-    baseline_history = artifact_root / "histories/diffusion_seed42_baseline.csv"
-    frozen_history = artifact_root / "histories/diffusion_seed42_frozen.csv"
-    baseline_payload, baseline_sampler = _load_sampler(
-        baseline_checkpoint, manifests[0]["effective_config"], device
-    )
-    states_equal, state_max_abs = model_states_equal(
-        baseline_payload["model_state_dict"], frozen_seed42_payload["model_state_dict"]
-    )
-    histories_equal, history_max_abs = histories_numerically_equal(
-        baseline_history, frozen_history
-    )
-    baseline_samples = baseline_sampler.sample(16, seed=42)
-    samples_equal = bool(torch.equal(baseline_samples, frozen_seed42_samples))
-    reproduction = {
-        "baseline_best_epoch": int(baseline_payload["epoch"]),
-        "frozen_best_epoch": int(frozen_seed42_payload["epoch"]),
-        "baseline_best_validation_loss": float(baseline_payload["validation_loss"]),
-        "frozen_best_validation_loss": float(frozen_seed42_payload["validation_loss"]),
-        "state_dict_exactly_equal": states_equal,
-        "state_dict_max_abs_difference": state_max_abs,
-        "history_metrics_exactly_equal": histories_equal,
-        "history_metrics_max_abs_difference": history_max_abs,
-        "sanity_samples_exactly_equal": samples_equal,
-    }
-    if not (states_equal and histories_equal and samples_equal):
-        raise RuntimeError(f"Seed-42 frozen run did not reproduce baseline: {reproduction}")
-    verification["seed42_reproduction"] = reproduction
-    output = artifact_root / "manifests/diffusion_frozen_seeds_verification.json"
+    output = artifact_root / "manifests/diffusion_global_channel_seeds_verification.json"
     output.write_text(json.dumps(verification, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(verification, indent=2))
     print(f"verification={output}")
