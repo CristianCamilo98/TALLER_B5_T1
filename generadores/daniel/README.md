@@ -79,10 +79,23 @@ under `artifacts/` and are excluded locally through `.git/info/exclude`.
 
 Artifacts named `diffusion_seed*_frozen`, `diffusion_seed*_normalized_5000`,
 or `diffusion_seed*_nvda_like_5000` were produced before normalization
-alignment and are retained locally as `LEGACY_PER_TICKER`. Current artifacts
-use `global_channel` in every run, pool, manifest, table, and figure name and
-form the `CURRENT_GLOBAL_CHANNEL` lineage. Scripts never overwrite the legacy
-names.
+alignment and belong to the superseded `LEGACY_PER_TICKER` lineage. Current
+runtime artifacts use `global_channel` in every run, pool, manifest, table,
+and figure name and form the `CURRENT_GLOBAL_CHANNEL` lineage.
+
+## Common synthetic output
+
+The common output for cross-generator comparison is
+`outputs/diffusion_seed42_normalized.parquet`. It contains 5,000 unlabelled
+synthetic scenarios produced by the DDPM/Diffusion model with training seed
+42. Its logical tensor shape is `(5000, 65, 3)`, stored as one row per window
+with 195 session-major values in `features_flat`.
+
+The fixed channel order is `log_return`, `log_high_low_range`, and
+`log1p_volume`; the space is `global_channel_normalized`. These scenarios have
+no real dates or tickers. The Parquet is an exact export of the current
+global-channel seed-42 normalized pool and is intended as Daniel's common
+synthetic output for comparison with the other generators.
 
 ## Daniel-only visual diagnostics
 
