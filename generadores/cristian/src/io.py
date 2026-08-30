@@ -93,6 +93,15 @@ def save_synthetic_parquet(frame: pd.DataFrame, path: Path) -> None:
     frame.to_parquet(path, index=False)
 
 
+def save_synthetic_outputs(frame: pd.DataFrame, parquet_path: Path) -> tuple[Path, Path]:
+    """Guarda ventanas sintéticas en parquet y CSV (mismo schema)."""
+    parquet_path.parent.mkdir(parents=True, exist_ok=True)
+    frame.to_parquet(parquet_path, index=False)
+    csv_path = parquet_path.with_suffix(".csv")
+    frame.to_csv(csv_path, index=False)
+    return parquet_path, csv_path
+
+
 def flatten_generated(windows: np.ndarray) -> np.ndarray:
     if windows.ndim != 3 or windows.shape[1:] != (WINDOW_LENGTH, N_CHANNELS):
         raise ValueError(f"Expected (N, {WINDOW_LENGTH}, {N_CHANNELS}), got {windows.shape}")

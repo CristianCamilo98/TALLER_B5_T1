@@ -69,16 +69,20 @@ Artefactos en `artifacts/seed_42/`:
 
 ## Generación
 
+Genera **3 parquets** (seeds 42, 123, 2026 × 5000 ventanas cada uno):
+
 ```bash
-../../.venv/bin/python scripts/generate_synthetic.py \
-  --run-dir seed_42 \
-  --validate
+../../.venv/bin/python scripts/generate_synthetic.py --validate
 ```
 
-Por defecto genera **5000** ventanas (`n_synthetic_windows` en `configs/wgan_gp.yaml`).
-Override: `--n-samples 10000`.
+Una seed concreta: `--seed 42`.
 
-Salida: `outputs/synthetic_seed42_n5000.parquet` + informe JSON de validación (con `--validate`).
+Salida por seed (parquet + csv):
+- `outputs/synthetic_seed42_n5000.parquet` / `.csv` — desnormalizado (escala original)
+- `outputs/synthetic_seed42_n5000_normalized.parquet` / `.csv` — normalizado (salida del generador)
+- (idem seeds 123 y 2026)
+
+Requiere `artifacts/seed_{42,123,2026}/` entrenados previamente.
 
 ## Notebooks
 
@@ -105,4 +109,4 @@ Según `configs/experiment.yaml`:
 
 - Seeds: 42, 123, 2026
 
-Entrenar un checkpoint por seed; generar **5000** ventanas sintéticas por seed (`n_synthetic_windows` en yaml). Mezcla con reales (ratios) = fase posterior.
+Entrenar un checkpoint por seed (`train_wgan_gp.py --seed 42|123|2026`); generar los 3 parquets con `generate_synthetic.py`. Notebooks 03/04 cargan los 3 automáticamente (15000 ventanas total).

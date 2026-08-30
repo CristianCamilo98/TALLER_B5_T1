@@ -124,3 +124,53 @@ def compare_parquet_splits(
     synthetic_frame: pd.DataFrame,
 ) -> ValidationReport:
     return compare_windows(windows_to_array(real_frame), windows_to_array(synthetic_frame))
+
+
+def per_seed_validation_summary(
+    real_frame: pd.DataFrame,
+    synthetic_frame: pd.DataFrame,
+) -> pd.DataFrame:
+    rows: list[dict] = []
+    for seed in sorted(int(value) for value in synthetic_frame["seed"].unique()):
+        subset = synthetic_frame.loc[synthetic_frame["seed"].eq(seed)]
+        report = compare_parquet_splits(real_frame, subset)
+        real_summary = report.channel_summary_real.set_index("channel")
+        synth_summary = report.channel_summary_synthetic.set_index("channel")
+        for channel in CHANNELS:
+            rows.append(
+                {
+                    "seed": seed,
+                    "channel": channel,
+                    "n_synthetic": report.n_synthetic,
+                    "mmd_flat": report.mmd_flat,
+                    "mean_validation": float(real_summary.loc[channel, "mean"]),
+                    "mean_synthetic": float(synth_summary.loc[channel, "mean"]),
+                    "std_validation": float(real_summary.loc[channel, "std"]),
+                    "std_synthetic": float(synth_summary.loc[channel, "std"]),
+                    "autocorr_validation": float(
+                        report.autocorr_real.set_index("channel").loc[channel, "autocorr_lag1_mean"]
+                    ),
+                    "autocorr_synthetic": float(
+                        report.autocorr_synthetic.set_index("channel").loc[channel, "autocorr_lag1_mean"]
+                    ),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def per_seed_mmd_summary(
+    real_frame: pd.DataFrame,
+    synthetic_frame: pd.DataFrame,
+) -> pd.DataFrame:
+    rows: list[dict] = []
+    for seed in sorted(int(value) for value in synthetic_frame["seed"].unique()):
+        subset = synthetic_frame.loc[synthetic_frame["seed"].eq(seed)]
+        report = compare_parquet_splits(real_frame, subset)
+        rows.append(
+            {
+                "seed": seed,
+                "n_synthetic": report.n_synthetic,
+                "mmd_flat": report.mmd_flat,
+            }
+        )
+    return pd.DataFrame(rows)

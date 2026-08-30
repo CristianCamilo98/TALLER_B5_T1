@@ -75,6 +75,22 @@ def load_donor_windows(
     return frame.sort_values(["ticker", "window_start_date"]).reset_index(drop=True)
 
 
+def load_nvda_hidden_windows(
+    *,
+    windows_dir: Path | None = None,
+    config_path: Path | None = None,
+) -> pd.DataFrame:
+    """Ventanas NVDA en periodo hidden (2012 — 2022-H1), filtradas desde nvda_full_history."""
+    config = load_experiment_config(config_path)
+    hidden_end = pd.Timestamp(config["dates"]["target_hidden_end"])
+    frame = load_donor_windows("nvda_full_history", windows_dir=windows_dir)
+    frame = frame.copy()
+    frame["window_end_date"] = pd.to_datetime(frame["window_end_date"])
+    hidden = frame.loc[frame["window_end_date"] <= hidden_end].copy()
+    hidden["split"] = "nvda_hidden"
+    return hidden.sort_values(["ticker", "window_start_date"]).reset_index(drop=True)
+
+
 def fit_normalizer(train_windows: np.ndarray) -> ChannelNormalizer:
     if train_windows.ndim != 3 or train_windows.shape[1:] != (WINDOW_LENGTH, N_CHANNELS):
         raise ValueError(f"train_windows debe ser (N, {WINDOW_LENGTH}, {N_CHANNELS})")
