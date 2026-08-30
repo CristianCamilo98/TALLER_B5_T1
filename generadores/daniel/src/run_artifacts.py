@@ -87,6 +87,10 @@ FROZEN_RUN_IDS = {
     2026: "diffusion_seed2026_frozen",
 }
 
+LONG_TRAINING_RUN_ID = "diffusion_seed42_long_training_diagnostic"
+LONG_TRAINING_MAX_EPOCHS = 300
+LONG_TRAINING_PATIENCE = 30
+
 
 def validate_frozen_baseline(config: dict[str, Any]) -> None:
     """Reject any drift from the source baseline configuration."""
@@ -123,6 +127,26 @@ def frozen_run_id(seed: int) -> str:
         return FROZEN_RUN_IDS[int(seed)]
     except (KeyError, ValueError) as error:
         raise ValueError(f"Training seed must be one of {FROZEN_TRAINING_SEEDS}") from error
+
+
+def long_training_diagnostic_config(config: dict[str, Any]) -> dict[str, Any]:
+    """Derive the isolated seed-42 diagnostic by changing exactly two values."""
+
+    validate_frozen_baseline(config)
+    effective = deepcopy(config)
+    effective["training"]["max_epochs"] = LONG_TRAINING_MAX_EPOCHS
+    effective["training"]["early_stopping_patience"] = LONG_TRAINING_PATIENCE
+    return effective
+
+
+def validate_long_training_config(config: dict[str, Any]) -> None:
+    """Reject any long-training drift beyond max epochs and patience."""
+
+    expected = deepcopy(FROZEN_BASELINE)
+    expected["training"]["max_epochs"] = LONG_TRAINING_MAX_EPOCHS
+    expected["training"]["early_stopping_patience"] = LONG_TRAINING_PATIENCE
+    if config != expected:
+        raise ValueError("Long-training config differs from its two approved overrides")
 
 
 def write_history(history: list[dict], path: Path | str) -> None:

@@ -14,6 +14,17 @@ import pandas as pd  # noqa: E402
 from .validation import CHANNEL_ORDER
 
 
+def rejection_annotations(summary: pd.DataFrame) -> list[str]:
+    required = {"seed", "n_accepted", "n_rejected", "rejection_rate"}
+    if not required.issubset(summary.columns):
+        raise ValueError(f"Rejection summary lacks columns: {sorted(required - set(summary))}")
+    return [
+        f"{int(row.n_accepted)} accepted / {int(row.n_rejected)} rejected\n"
+        f"{float(row.rejection_rate):.1%}"
+        for row in summary.itertuples(index=False)
+    ]
+
+
 def generate_final_pool_figures(
     summary: pd.DataFrame,
     pools: dict[int, np.ndarray],
@@ -30,7 +41,26 @@ def generate_final_pool_figures(
     paths: dict[str, Path] = {}
 
     figure, axis = plt.subplots(figsize=(8, 5))
-    axis.bar(summary["seed"].astype(str), summary["rejection_rate"])
+    seeds = summary["seed"].astype(str).tolist()
+    rates = summary["rejection_rate"].to_numpy(dtype=np.float64)
+    axis.bar(seeds, rates, color="tab:blue", alpha=0.35)
+    # Zero-height bars are correct but visually disappear. Markers and exact
+    # labels communicate 0% without inventing positive rejection rates.
+    axis.scatter(seeds, rates, color="tab:blue", marker="o", zorder=3)
+    for seed, rate, label in zip(
+        seeds, rates, rejection_annotations(summary), strict=True
+    ):
+        axis.annotate(
+            label,
+            xy=(seed, rate),
+            xytext=(0, 12),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+        )
+    if np.all(rates == 0):
+        axis.set_ylim(-0.002, 0.025)
     axis.set_xlabel("Training/sampling seed")
     axis.set_ylabel("Whole-window rejection rate")
     axis.set_title("Final Diffusion pool rejection rates")
