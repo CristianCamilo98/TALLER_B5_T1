@@ -1,0 +1,6 @@
+generator,file,sha256,rows,logical_shape,training_seed,space,channel_order,finite,exact_duplicates,normalization_provenance,contract_status,discovery_error
+daniel,diffusion_seed42_normalized.parquet,bb9b5ad6b412fd785f73344cd765c56447b92de2b5827e40b3dc77d06e40a6c2,5000,"(5000,65,3)",42.0,global_channel_normalized,"['log_return', 'log_high_low_range', 'log1p_volume']",YES,0,PROVENANCE_NOT_VERIFIABLE,PASS,
+marco,donor_synthetic_normalized_seed42.parquet,8fda1874acec2b9136919d5dee9fcbbe268ffe35c9045a8f2f96e6d70de1c4fd,5000,"(5000,65,3)",,,unknown,YES,0,NORMALIZATION_MISMATCH,FAIL,
+discovery,,,0,,,,,,0,,FAIL,"cristian: expected exactly one official parquet, found 6: ['synthetic_seed123_n5000.parquet', 'synthetic_seed123_n5000_normalized.parquet', 'synthetic_seed2026_n5000.parquet', 'synthetic_seed2026_n5000_normalized.parquet', 'synthetic_seed42_n5000.parquet', 'synthetic_seed42_n5000_normalized.parquet']"
+discovery,,,0,,,,,,0,,FAIL,david: missing outputs/ directory
+discovery,,,0,,,,,,0,,FAIL,"marco: column set ['sample_id', 'features_flat'] != reference ['synthetic_id', 'source_model', 'training_seed', 'space', 'window_length', 'n_channels', 'channel_order', 'features_flat']"
