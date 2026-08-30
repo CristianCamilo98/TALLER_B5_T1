@@ -63,10 +63,16 @@ empuja a aprender la relación correcta.
 ## Métricas de calidad
 
 - **Distribuciones marginales**: solapan razonablemente en las 3 variables.
+
+![Distribuciones](figures/dist_real_vs_sintetico.png)
+
 - **t-SNE**: solapamiento parcial, no total como en el paper original —
   aparecen dos regiones sintéticas sin contrapartida real, probablemente
   porque los donors cubren 10 años de regímenes de mercado y NVDA visible
   es un único semestre.
+
+![t-SNE](figures/tsne_calidad.png)
+
 - **Discriminative score**: 0.158 (rango 0-0.15 del paper para un generador
   que funciona razonablemente). La matriz de confusión muestra que el
   clasificador confunde sobre todo lo *real* con sintético, no al revés —
