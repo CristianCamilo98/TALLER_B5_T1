@@ -36,6 +36,9 @@ python generadores/daniel/scripts/generate_final_pools.py --seed 42
 python generadores/daniel/scripts/generate_final_pools.py --seed 123
 python generadores/daniel/scripts/generate_final_pools.py --seed 2026
 python generadores/daniel/scripts/summarize_final_pools.py
+python generadores/daniel/scripts/evaluate_visual_diagnostics.py
+python generadores/daniel/scripts/plot_training_diagnostics.py --run-id diffusion_seed42_frozen
+python generadores/daniel/scripts/train_long_diagnostic.py
 ```
 
 The smoke test performs one optimizer update and mechanical sampling only. The
@@ -69,3 +72,33 @@ fidelity phase, not a replacement for it.
 
 Generated checkpoints, histories, samples, manifests, and figures belong
 under `artifacts/` and are excluded locally through `.git/info/exclude`.
+
+## Daniel-only visual diagnostics
+
+`evaluate_visual_diagnostics.py` compares normalized donor validation with a
+deterministic, balanced subset of the frozen seed-42 normalized pool. The
+marginal panels describe channel centre, dispersion, and tails, but not
+temporal dependence. The logistic classifier is a diagnostic rather than part
+of the generator: its ROC-AUC and accuracy use five-fold out-of-fold
+predictions. AUC near 0.50 means only that this linear classifier has little
+distinguishing ability; it does not prove identical distributions. The joint
+PCA/t-SNE view is likewise descriptive and seed/parameter dependent, so it is
+not a model score or ranking. These local figures do not replace common
+fidelity evaluation.
+
+## Seed-42 long-training diagnostic
+
+`train_long_diagnostic.py` derives a separate experiment from the frozen
+configuration. Its only changes are `max_epochs: 200 -> 300` and
+`early_stopping_patience: 20 -> 30`; it does not impose a minimum epoch count.
+All data, normalization, model, diffusion, optimizer, and validation settings
+remain frozen. Outputs use the distinct run ID
+`diffusion_seed42_long_training_diagnostic` and cannot overwrite the certified
+seed-42 run.
+
+Training loss may continue to decrease while validation loss rises. That
+pattern is compatible with overfitting and validation need not improve
+monotonically. Early stopping therefore preserves the checkpoint with minimum
+deterministic validation loss, not the last epoch. Even if the diagnostic finds
+a later minimum, replacing the certified frozen checkpoint remains a separate
+manual project decision.
