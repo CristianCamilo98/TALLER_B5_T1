@@ -1,0 +1,8 @@
+tensorflow>=2.16
+scikit-learn>=1.4
+seaborn>=0.13
+pandas>=2.0
+numpy>=1.26
+pyarrow>=14.0
+PyYAML>=6.0
+matplotlib>=3.8

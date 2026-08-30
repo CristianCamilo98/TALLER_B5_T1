@@ -1,0 +1,26 @@
+model:
+  type: ddpm_temporal_1d
+  input_length: 65
+  input_channels: 3
+  base_channels: 64
+  time_embedding_dim: 128
+
+diffusion:
+  steps: 100
+  objective: epsilon_prediction
+  beta_schedule: linear
+  beta_start: 0.0001
+  beta_end: 0.02
+
+training:
+  batch_size: 64
+  learning_rate: 0.0002
+  optimizer: adamw
+  weight_decay: 0.0001
+  gradient_clip_norm: 1.0
+  max_epochs: 200
+  early_stopping_patience: 20
+
+reproducibility:
+  seed: 42
+  validation_seed: 424242
