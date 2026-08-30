@@ -19,3 +19,13 @@ data/features/windows/*.parquet
 data/splits/*csv
 data/splits/*parquet
 !data/splits/daily_split_report.csv
+
+# Marco -- artefactos regenerables del VAE (cachés, pesos, sinteticos sin exportar)
+cache_*.npz
+*.weights.h5
+scaler_donors.npz
+loss_history.npz
+synthetic_scaled_raw.npz
+nvda_sintetico_calibrado.npz
+
+common_pipeline/03_utility/results/calibrated_pools/
