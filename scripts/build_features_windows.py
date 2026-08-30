@@ -1,29 +1,9 @@
 #!/usr/bin/env python3
-"""Features diarias generativas + ventanas T=65 multi-stride (solo lectura de data/clean/).
-
-Uso:
-  .venv/bin/python scripts/build_features_windows.py
-
-Entrada (no se modifica):
-  data/clean/ohlcv_clean.parquet
-
-Salidas (features-0.2.0):
-  data/features/daily_features.parquet
-  data/features/daily_features.csv
-  data/features/windows_65_stride{1,10,30,65}.parquet
-  data/features/features_manifest.json
-  data/features/checksums.sha256
-  data/features/README.md
-
-Menú de datasets para compañeros (VAE/GAN/Diffusion). primary_stride=1 es el
-DEFAULT RECOMENDADO comparable; los demás strides quedan disponibles.
-Entrenamiento de generadores y splits quedan fuera de este script.
-"""
+"""Construye features y ventanas únicamente después del split diario certificado."""
 
 from __future__ import annotations
 
-import hashlib
-import json
+import argparse
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -31,598 +11,357 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
-
-DATA_VERSION = "features-0.2.0"
-EXPECTED_INPUT_SHA256 = (
-    "fb1d9e60853743fff8cf6a2b17fb7588915d4213022c75b7311f33944a974f25"
+from common_protocol import (
+    ROOT,
+    load_experiment_config,
+    normalize_date,
+    root_path,
+    sha256_file,
+    verify_snapshot,
+    write_checksums,
+    write_json,
 )
 
-INPUT_PARQUET = ROOT / "data" / "clean" / "ohlcv_clean.parquet"
-FEATURES_DIR = ROOT / "data" / "features"
-DAILY_PARQUET = FEATURES_DIR / "daily_features.parquet"
-DAILY_CSV = FEATURES_DIR / "daily_features.csv"
-MANIFEST_PATH = FEATURES_DIR / "features_manifest.json"
-CHECKSUMS_PATH = FEATURES_DIR / "checksums.sha256"
-README_PATH = FEATURES_DIR / "README.md"
-
-# Legado 0.1.0 (un solo stride implícito) — no es canónico en 0.2.0
-LEGACY_WINDOWS = FEATURES_DIR / "windows_65.parquet"
-
-T = 65
-STRIDES = [1, 10, 30, 65]
-PRIMARY_STRIDE = 1
-CHANNEL_ORDER = ["log_return", "log_high_low_range", "log_volume"]
-N_CHANNELS = len(CHANNEL_ORDER)
-FLAT_LEN = T * N_CHANNELS  # 195
-
-FEATURE_COLS = ["date", "ticker", *CHANNEL_ORDER]
-OHLCV_COLS = ["date", "ticker", "Open", "High", "Low", "Close", "Volume"]
-
-APPLIED_RULES = [
-    "per_ticker_temporal_order",
-    "drop_volume_eq_0_before_features_no_ln1",
-    "log_return_ln_close_t_over_close_t_minus_1",
-    "log_high_low_range_ln_high_over_low_or_0_if_equal",
-    "log_volume_ln_volume",
-    "drop_first_row_per_ticker_missing_log_return",
-    "drop_nan_inf_in_three_features",
-    "no_ffill_no_winsorize_no_standardize",
-    "windows_T65_multi_stride_consecutive_feature_rows_single_ticker",
-    "one_parquet_per_stride_no_mixed_stride_file",
-    "channel_order_log_return_log_high_low_range_log_volume",
-]
+DATA_VERSION = "features-windows-1.0.0"
+FEATURE_BLOCKS = (
+    "donor_train",
+    "donor_validation",
+    "nvda_visible",
+    "nvda_full_history",
+    "nvda_test_source",
+)
+WINDOW_SPLITS = (
+    "donor_train",
+    "donor_validation",
+    "nvda_visible",
+    "nvda_full_history",
+)
 
 
-def windows_path(stride: int) -> Path:
-    return FEATURES_DIR / f"windows_65_stride{stride}.parquet"
-
-
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def normalize_date(series: pd.Series) -> pd.Series:
-    """Fecha calendario naive (sin timezone), normalizada a medianoche."""
-    dt = pd.to_datetime(series)
-    if getattr(dt.dt, "tz", None) is not None:
-        dt = dt.dt.tz_convert("UTC").dt.tz_localize(None)
-    return dt.dt.normalize()
-
-
-def expected_n_windows(n_rows: int, stride: int, t: int = T) -> int:
-    """n_windows = floor((n_rows - T) / stride) + 1  si n_rows >= T; else 0."""
-    if n_rows < t:
-        return 0
-    return (n_rows - t) // stride + 1
-
-
-def build_daily_features(ohlcv: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
-    """Construye panel de features diario por ticker."""
-    df = ohlcv.copy()
-    df["date"] = normalize_date(df["date"])
-    df["ticker"] = df["ticker"].astype(str)
-    df = df.sort_values(["ticker", "date"]).reset_index(drop=True)
-
-    n_vol0 = int((df["Volume"] == 0).sum())
-    vol0_rows = (
-        df.loc[df["Volume"] == 0, ["date", "ticker", "Volume"]]
-        .assign(date=lambda x: x["date"].dt.strftime("%Y-%m-%d"))
-        .to_dict(orient="records")
-    )
-    df = df.loc[df["Volume"] != 0].copy()
-
-    parts: list[pd.DataFrame] = []
-    dropped_first_row = 0
-    dropped_nan_inf = 0
-
-    for ticker, g in df.groupby("ticker", sort=True):
-        g = g.sort_values("date").copy()
-        prev_close = g["Close"].shift(1)
-        log_return = np.log(g["Close"] / prev_close)
-
-        high = g["High"].to_numpy(dtype=np.float64)
-        low = g["Low"].to_numpy(dtype=np.float64)
-        equal_hl = high == low
-        with np.errstate(divide="ignore", invalid="ignore"):
-            log_hl = np.log(high / low)
-        log_hl = np.where(equal_hl, 0.0, log_hl)
-
-        log_volume = np.log(g["Volume"].to_numpy(dtype=np.float64))
-
-        feat = pd.DataFrame(
+def build_daily_features(ohlcv: pd.DataFrame, block: str) -> pd.DataFrame:
+    """Calcula las tres features dentro de cada bloque, sin mirar la fila anterior al corte."""
+    frames: list[pd.DataFrame] = []
+    for ticker, group in ohlcv.groupby("ticker", sort=True):
+        group = group.sort_values("date").copy()
+        if (group[["High", "Low", "Close"]] <= 0).any().any():
+            raise ValueError(f"{block}/{ticker}: precios no positivos")
+        if (group["Volume"] < 0).any():
+            raise ValueError(f"{block}/{ticker}: volumen negativo")
+        frame = pd.DataFrame(
             {
-                "date": g["date"].to_numpy(),
+                "feature_block": block,
+                "date": group["date"].to_numpy(),
                 "ticker": ticker,
-                "log_return": log_return.to_numpy(dtype=np.float64),
-                "log_high_low_range": log_hl,
-                "log_volume": log_volume,
+                "log_return": np.log(
+                    group["Close"] / group["Close"].shift(1)
+                ).to_numpy(dtype=np.float64),
+                "log_high_low_range": np.log(
+                    group["High"].to_numpy(dtype=np.float64)
+                    / group["Low"].to_numpy(dtype=np.float64)
+                ),
+                "log1p_volume": np.log1p(group["Volume"].to_numpy(dtype=np.float64)),
             }
         )
-
-        missing_return = feat["log_return"].isna()
-        dropped_first_row += int(missing_return.sum())
-        feat = feat.loc[~missing_return].copy()
-
-        vals = feat[CHANNEL_ORDER]
-        bad = ~np.isfinite(vals.to_numpy(dtype=np.float64)).all(axis=1)
-        dropped_nan_inf += int(bad.sum())
-        feat = feat.loc[~bad].copy()
-
-        parts.append(feat)
-
-    features = pd.concat(parts, ignore_index=True)
-    features = features.sort_values(["ticker", "date"]).reset_index(drop=True)
-    features = features[FEATURE_COLS]
-
-    stats = {
-        "dropped_volume_eq_0": n_vol0,
-        "volume_eq_0_rows": vol0_rows,
-        "dropped_first_row_or_missing_log_return": dropped_first_row,
-        "dropped_nan_inf_features": dropped_nan_inf,
-    }
-    return features, stats
+        frame = frame.dropna(subset=["log_return"]).copy()
+        values = frame[["log_return", "log_high_low_range", "log1p_volume"]].to_numpy()
+        frame = frame.loc[np.isfinite(values).all(axis=1)].copy()
+        frames.append(frame)
+    if not frames:
+        raise ValueError(f"Bloque sin features: {block}")
+    out = pd.concat(frames, ignore_index=True)
+    return out.sort_values(["ticker", "date"]).reset_index(drop=True)
 
 
-def build_windows(features: pd.DataFrame, stride: int) -> pd.DataFrame:
-    """Ventanas [T, 3] por ticker; stride dado sobre filas consecutivas de features.
-
-    Columna `features_flat`: lista de FLAT_LEN floats, row-major
-    (t=0..T-1, canal en CHANNEL_ORDER). Reconstruir:
-        np.asarray(row.features_flat, dtype=np.float64).reshape(T, 3)
-    """
+def build_windows(
+    features: pd.DataFrame,
+    *,
+    split: str,
+    stride: int,
+    length: int,
+    channels: list[str],
+) -> pd.DataFrame:
     records: list[dict] = []
-
-    for ticker, g in features.groupby("ticker", sort=True):
-        g = g.sort_values("date").reset_index(drop=True)
-        n = len(g)
-        if n < T:
-            continue
-        mat = g[CHANNEL_ORDER].to_numpy(dtype=np.float64)
-        dates = g["date"].to_numpy()
-        for start in range(0, n - T + 1, stride):
-            end = start + T  # exclusive
-            flat = mat[start:end].reshape(-1).tolist()
+    for ticker, group in features.groupby("ticker", sort=True):
+        group = group.sort_values("date").reset_index(drop=True)
+        matrix = group[channels].to_numpy(dtype=np.float64)
+        dates = group["date"].to_numpy()
+        for start in range(0, len(group) - length + 1, stride):
+            stop = start + length
             records.append(
                 {
+                    "split": split,
                     "ticker": ticker,
                     "window_start_date": dates[start],
-                    "window_end_date": dates[end - 1],
-                    "features_flat": flat,
+                    "window_end_date": dates[stop - 1],
+                    "features_flat": matrix[start:stop].reshape(-1).tolist(),
                 }
             )
+    if not records:
+        raise ValueError(f"No se generaron ventanas para {split}")
+    return pd.DataFrame.from_records(records).sort_values(
+        ["ticker", "window_start_date"]
+    ).reset_index(drop=True)
 
-    windows = pd.DataFrame.from_records(records)
-    if windows.empty:
-        windows = pd.DataFrame(
-            columns=["ticker", "window_start_date", "window_end_date", "features_flat"]
+
+def build_test_index(
+    features: pd.DataFrame,
+    *,
+    target: str,
+    test_start: pd.Timestamp,
+    test_end: pd.Timestamp,
+    context: int,
+    horizon: int,
+    stride: int,
+    channels: list[str],
+) -> pd.DataFrame:
+    group = features.loc[features["ticker"].eq(target)].sort_values("date").reset_index(drop=True)
+    length = context + horizon
+    valid_starts: list[int] = []
+    for start in range(0, len(group) - length + 1):
+        target_dates = group["date"].iloc[start + context : start + length]
+        if len(target_dates) == horizon and target_dates.min() >= test_start and target_dates.max() <= test_end:
+            valid_starts.append(start)
+    selected = valid_starts[::stride]
+    records: list[dict] = []
+    for test_row, start in enumerate(selected):
+        stop = start + length
+        block = group.iloc[start:stop]
+        context_dates = block["date"].iloc[:context]
+        target_dates = block["date"].iloc[context:]
+        records.append(
+            {
+                "test_row": test_row,
+                "ticker": target,
+                "window_start_date": block["date"].iloc[0],
+                "window_end_date": block["date"].iloc[-1],
+                "context_start_date": context_dates.iloc[0],
+                "context_end_date": context_dates.iloc[-1],
+                "target_start_date": target_dates.iloc[0],
+                "target_end_date": target_dates.iloc[-1],
+                "context_dates": [value.strftime("%Y-%m-%d") for value in context_dates],
+                "target_dates": [value.strftime("%Y-%m-%d") for value in target_dates],
+                "features_flat": block[channels].to_numpy(dtype=np.float64).reshape(-1).tolist(),
+            }
         )
-    else:
-        windows = windows.sort_values(
-            ["ticker", "window_start_date"]
-        ).reset_index(drop=True)
-    return windows
+    if not records:
+        raise ValueError("No se generó test_index")
+    return pd.DataFrame.from_records(records)
 
 
-def remove_legacy_artifacts() -> list[str]:
-    """Elimina el parquet canónico de 0.1.0 sin stride en el nombre."""
-    removed: list[str] = []
-    if LEGACY_WINDOWS.is_file():
-        LEGACY_WINDOWS.unlink()
-        removed.append(str(LEGACY_WINDOWS.relative_to(ROOT)))
-    return removed
+def window_path(windows_dir: Path, split: str) -> Path:
+    return windows_dir / f"{split}.parquet"
 
 
-def write_readme() -> None:
-    stride_rows = "\n".join(
-        f"| `{s}` | `data/features/windows_65_stride{s}.parquet` |"
-        + (" **← primary / default recomendado**" if s == PRIMARY_STRIDE else "")
-        for s in STRIDES
-    )
-    text = f"""# Features diarias + ventanas T={T} multi-stride (`{DATA_VERSION}`)
-
-Panel de features generativas diarias y **menú de datasets de ventanas** (varios
-strides) a partir de `data/clean/ohlcv_clean.parquet`.
-
-**Solo features + ventanas.** Sin splits, sin calibración a NVDA, sin
-estandarización, sin entrenamiento (VAE/GAN/Diffusion/Ridge). Sin re-limpieza
-ni escritura en `data/clean/`.
-
-Este repo prepara datos comunes para que Marco (VAE), Cristian (GAN) y Dani
-(Diffusion) entrenen sintéticos **sin reconstruir el pipeline**. Cada uno elige
-más adelante qué stride(s) usar; este chat **no** decide el entrenamiento.
-
-> **Mantenimiento:** cualquier cambio en fórmulas o políticas debe actualizar
-> **este README** y `scripts/build_features_windows.py` (y regenerar artefactos +
-> `features_manifest.json`).
-
-## Canónico en 0.2.0 (vs legado 0.1.0)
-
-| Versión | Artefacto de ventanas |
-|---|---|
-| **0.2.0 (canónico)** | `windows_65_stride{{1,10,30,65}}.parquet` — **un fichero por stride** |
-| 0.1.0 (legado) | `windows_65.parquet` (stride=1 implícito) — **eliminado** en esta versión |
-
-No uses `windows_65.parquet`. No mezcles distintos strides en un mismo train
-sin acuerdo explícito del equipo (y sin columna `stride` si fuera un fichero único;
-aquí preferimos ficheros separados).
-
-## Entrada (solo lectura)
-
-| Campo | Valor |
-|---|---|
-| Ruta | `data/clean/ohlcv_clean.parquet` |
-| SHA256 esperado | `{EXPECTED_INPUT_SHA256}` |
-| `data/clean/` | **no se modifica** |
-
-Si el SHA del parquet de entrada no coincide, el script **aborta**.
-
-## Features (por ticker, orden temporal)
-
-1. `log_return_t = ln(Close_t / Close_{{t-1}})`
-2. `log_high_low_range_t = ln(High_t / Low_t)`; si `High == Low` → `0.0`
-3. `log_volume_t = ln(Volume_t)`; filas con `Volume == 0` → **DROP** (no `ln(1)`)
-
-Reglas:
-
-- Independiente por ticker.
-- Filas `Volume == 0` se eliminan **antes** de calcular features.
-- Primera fila de cada ticker sin `log_return` → fuera.
-- Drop NaN/inf en las 3 features.
-- **No** ffill. **No** winsorize. **No** estandarizar.
-- Huecos vs unión de fechas: ventanas sobre **filas consecutivas del panel de
-  features**, no días de calendario rellenados.
-
-## Menú de ventanas (multi-stride)
-
-| Parámetro | Valor |
-|---|---|
-| `T` | {T} |
-| `strides` | `{STRIDES}` |
-| `primary_stride` | **{PRIMARY_STRIDE}** (DEFAULT RECOMENDADO para corrida oficial comparable) |
-| Canales (orden fijo) | `{CHANNEL_ORDER}` → shape `[{T}, 3]` |
-| Ámbito | un solo ticker por ventana |
-| Metadatos | `ticker`, `window_start_date`, `window_end_date` |
-
-### Qué significa el stride
-
-El stride es cuántas filas de features avanzas al crear la **siguiente** ventana.
-Con `T=65` y `stride=1`, las ventanas se solapan en 64 días. Con `stride=65`,
-son bloques disjuntos (sin solape).
-
-### Fórmula de conteo (por ticker y stride)
-
-Si un ticker tiene `n` filas de features:
-
-```
-n_windows(ticker, stride) = floor((n - T) / stride) + 1   si n >= T
-n_windows(ticker, stride) = 0                              si n < T
-```
-
-Total por stride = suma sobre tickers.
-
-### Ficheros del menú
-
-{stride_rows}
-
-`primary_stride={PRIMARY_STRIDE}` es solo el default recomendado comparable del
-equipo; los otros strides quedan disponibles para experimentos individuales.
-
-## Ejecutar
-
-```bash
-cd taller_cristian
-.venv/bin/python scripts/build_features_windows.py
-```
-
-## Artefactos
-
-| Ruta | Contenido |
-|---|---|
-| `data/features/daily_features.parquet` | Features diarias |
-| `data/features/daily_features.csv` | Misma tabla en CSV |
-| `data/features/windows_65_stride*.parquet` | Ventanas por stride + `features_flat` |
-| `data/features/features_manifest.json` | Metadatos, conteos, SHA, políticas |
-| `data/features/checksums.sha256` | SHA256 de salidas |
-| `data/features/README.md` | Este documento |
-
-`data_version`: `{DATA_VERSION}`
-
-## Reconstruir tensor `[65, 3]`
-
-En cada `windows_65_stride*.parquet`, la columna `features_flat` es una lista de
-`{FLAT_LEN}` floats en orden row-major: para cada `t` en `0..{T - 1}`, los
-canales `{CHANNEL_ORDER}`.
-
-```python
-import numpy as np
-import pandas as pd
-
-w = pd.read_parquet("data/features/windows_65_stride1.parquet")  # o stride10/30/65
-row = w.iloc[0]
-X = np.asarray(row["features_flat"], dtype=np.float64).reshape({T}, {N_CHANNELS})
-# X.shape == ({T}, {N_CHANNELS}); X[:, 0] == log_return, etc.
-assert list(X.shape) == [{T}, {N_CHANNELS}]
-```
-
-## Verificar checksums
-
-```bash
-sha256sum -c data/features/checksums.sha256
-```
-
-## Usar features diarias
-
-```python
-import pandas as pd
-f = pd.read_parquet("data/features/daily_features.parquet")
-# columnas: date, ticker, log_return, log_high_low_range, log_volume
-```
-
-Fuera de alcance: splits de experimento, calibración/estandarización a NVDA,
-entrenamiento de modelos generativos.
-"""
-    README_PATH.write_text(text, encoding="utf-8")
-
-
-def verify_window_vs_daily(
-    features: pd.DataFrame, windows: pd.DataFrame, label: str
-) -> None:
-    """Comprueba que features_flat de una ventana coincide con el panel diario."""
-    if windows.empty:
-        raise RuntimeError(f"sanity {label}: windows vacío")
-    row = windows.iloc[0]
-    X = np.asarray(row["features_flat"], dtype=np.float64).reshape(T, N_CHANNELS)
-    t = row["ticker"]
-    start = row["window_start_date"]
-    g = features.loc[features["ticker"] == t].sort_values("date").reset_index(drop=True)
-    pos = int(g.index[g["date"] == start][0])
-    block = g.iloc[pos : pos + T][CHANNEL_ORDER].to_numpy(dtype=np.float64)
-    if not np.allclose(block, X):
-        raise RuntimeError(f"sanity {label}: mismatch reshape vs daily")
-    if row["window_end_date"] != g.iloc[pos + T - 1]["date"]:
-        raise RuntimeError(f"sanity {label}: window_end_date mismatch")
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="configs/experiment.yaml")
+    return parser.parse_args()
 
 
 def main() -> int:
-    if not INPUT_PARQUET.is_file():
-        print(f"FALLO: no existe entrada {INPUT_PARQUET}", file=sys.stderr)
-        return 1
-
-    input_sha = sha256_file(INPUT_PARQUET)
-    if input_sha != EXPECTED_INPUT_SHA256:
-        print(
-            "BLOQUEADO: SHA256 del parquet de entrada no coincide.\n"
-            f"  esperado: {EXPECTED_INPUT_SHA256}\n"
-            f"  obtenido: {input_sha}\n"
-            "No se re-limpia ni se modifica data/clean/. Abortando.",
-            file=sys.stderr,
-        )
-        return 1
-
-    df = pd.read_parquet(INPUT_PARQUET)
-    missing = [c for c in OHLCV_COLS if c not in df.columns]
-    if missing:
-        print(f"FALLO: faltan columnas {missing}; got={list(df.columns)}", file=sys.stderr)
-        return 1
-
-    rows_in = int(len(df))
-    features, drop_stats = build_daily_features(df)
-    n_features = int(len(features))
-    if n_features == 0:
-        print("FALLO: panel de features vacío.", file=sys.stderr)
-        return 1
-
-    n_inf = int((~np.isfinite(features[CHANNEL_ORDER].to_numpy())).sum())
-    if n_inf != 0:
-        print(f"FALLO: quedan no-finitos en features: {n_inf}", file=sys.stderr)
-        return 1
-
-    n_features_by_ticker = {
-        t: int(n) for t, n in features.groupby("ticker").size().sort_index().items()
-    }
-
-    FEATURES_DIR.mkdir(parents=True, exist_ok=True)
-    removed_legacy = remove_legacy_artifacts()
-
-    features.to_parquet(DAILY_PARQUET, index=False)
-    features.to_csv(DAILY_CSV, index=False)
-
-    windows_by_stride: dict[int, pd.DataFrame] = {}
-    n_windows_total: dict[str, int] = {}
-    n_windows_by_ticker: dict[str, dict[str, int]] = {}
-    count_checks: dict[str, bool] = {}
-
-    for stride in STRIDES:
-        w = build_windows(features, stride=stride)
-        if w.empty:
-            print(f"FALLO: 0 ventanas para stride={stride}", file=sys.stderr)
-            return 1
-        lens = w["features_flat"].map(len)
-        if not (lens == FLAT_LEN).all():
-            print(f"FALLO: features_flat len != {FLAT_LEN} (stride={stride})", file=sys.stderr)
-            return 1
-        flat_arr = np.vstack(
-            [np.asarray(x, dtype=np.float64) for x in w["features_flat"]]
-        )
-        if not np.isfinite(flat_arr).all():
-            print(f"FALLO: NaN/inf en ventanas stride={stride}", file=sys.stderr)
-            return 1
-
-        by_t = {t: int(n) for t, n in w.groupby("ticker").size().sort_index().items()}
-        for t in n_features_by_ticker:
-            by_t.setdefault(t, 0)
-        # Fórmula de conteo
-        expected_total = sum(
-            expected_n_windows(n_features_by_ticker[t], stride) for t in n_features_by_ticker
-        )
-        ok_count = int(len(w)) == expected_total and all(
-            by_t[t] == expected_n_windows(n_features_by_ticker[t], stride)
-            for t in n_features_by_ticker
-        )
-        if not ok_count:
-            print(f"FALLO: conteo ventanas != fórmula (stride={stride})", file=sys.stderr)
-            return 1
-
-        out = windows_path(stride)
-        w.to_parquet(out, index=False)
-        windows_by_stride[stride] = w
-        key = f"stride{stride}"
-        n_windows_total[key] = int(len(w))
-        n_windows_by_ticker[key] = by_t
-        count_checks[key] = ok_count
-
-    # Sanity reshape ↔ daily: stride=1 y un ejemplo stride=65
+    args = parse_args()
     try:
-        verify_window_vs_daily(features, windows_by_stride[1], "stride1")
-        verify_window_vs_daily(features, windows_by_stride[65], "stride65")
-        # También última ventana de stride=65 (bloques disjuntos)
-        w65 = windows_by_stride[65]
-        verify_window_vs_daily(features, w65.iloc[[-1]].reset_index(drop=True), "stride65_last")
-    except RuntimeError as exc:
-        print(f"FALLO: {exc}", file=sys.stderr)
+        config, config_path = load_experiment_config(args.config)
+        clean_path = root_path(config, "clean_panel")
+        clean_manifest = root_path(config, "clean_manifest")
+        split_path = root_path(config, "daily_splits")
+        split_manifest = root_path(config, "split_manifest")
+        clean_sha = verify_snapshot(clean_path, clean_manifest)
+        split_sha = verify_snapshot(split_path, split_manifest)
+
+        daily_features_path = root_path(config, "daily_features")
+        windows_dir = root_path(config, "windows_dir")
+        test_index_path = root_path(config, "test_index")
+        manifest_path = root_path(config, "features_manifest")
+        report_path = root_path(config, "window_report")
+        checksums_path = daily_features_path.parent / "checksums.sha256"
+
+        clean = pd.read_parquet(clean_path)
+        assignments = pd.read_parquet(split_path)
+        clean["date"] = normalize_date(clean["date"])
+        assignments["date"] = normalize_date(assignments["date"])
+        joined = clean.merge(
+            assignments[["date", "ticker", "split"]],
+            on=["date", "ticker"],
+            how="inner",
+            validate="1:1",
+        )
+        if len(joined) != len(clean):
+            raise ValueError("El split diario no cubre el panel clean 1:1")
+
+        dates = {key: pd.Timestamp(value) for key, value in config["dates"].items()}
+        target = config["universe"]["target"]
+        blocks = {
+            "donor_train": joined.loc[joined["split"].eq("donor_train")],
+            "donor_validation": joined.loc[joined["split"].eq("donor_validation")],
+            "nvda_visible": joined.loc[joined["split"].eq("nvda_visible")],
+            "nvda_full_history": joined.loc[
+                joined["ticker"].eq(target)
+                & joined["date"].between(dates["target_hidden_start"], dates["target_visible_end"])
+            ],
+            "nvda_test_source": joined.loc[
+                joined["ticker"].eq(target)
+                & joined["date"].between(dates["target_visible_start"], dates["target_test_end"])
+            ],
+        }
+        daily_by_block = {
+            block: build_daily_features(frame, block) for block, frame in blocks.items()
+        }
+        daily_features = pd.concat(daily_by_block.values(), ignore_index=True)
+        daily_features["feature_row"] = range(len(daily_features))
+
+        channels = list(config["features"]["channels"])
+        window_cfg = config["windows"]
+        length = int(window_cfg["length"])
+        stride_map = {
+            "donor_train": int(window_cfg["strides"]["donor_train"]),
+            "donor_validation": int(window_cfg["strides"]["donor_validation"]),
+            "nvda_visible": int(window_cfg["strides"]["target_visible"]),
+            "nvda_full_history": int(window_cfg["strides"]["target_full_history"]),
+        }
+        windows = {
+            split: build_windows(
+                daily_by_block[split],
+                split=split,
+                stride=stride_map[split],
+                length=length,
+                channels=channels,
+            )
+            for split in WINDOW_SPLITS
+        }
+        test_index = build_test_index(
+            daily_by_block["nvda_test_source"],
+            target=target,
+            test_start=dates["target_test_start"],
+            test_end=dates["target_test_end"],
+            context=int(window_cfg["context"]),
+            horizon=int(window_cfg["horizon"]),
+            stride=int(window_cfg["strides"]["target_test"]),
+            channels=channels,
+        )
+
+        boundary_limits = {
+            "donor_train": (dates["donor_train_start"], dates["donor_train_end"]),
+            "donor_validation": (
+                dates["donor_validation_start"],
+                dates["donor_validation_end"],
+            ),
+            "nvda_visible": (dates["target_visible_start"], dates["target_visible_end"]),
+            "nvda_full_history": (dates["target_hidden_start"], dates["target_visible_end"]),
+        }
+        for split, frame in windows.items():
+            lower, upper = boundary_limits[split]
+            if frame["window_start_date"].min() < lower or frame["window_end_date"].max() > upper:
+                raise ValueError(f"{split}: una ventana cruza su frontera temporal")
+
+        target_sets = [set(values) for values in test_index["target_dates"]]
+        targets_non_overlapping = all(
+            left.isdisjoint(right)
+            for index, left in enumerate(target_sets)
+            for right in target_sets[index + 1 :]
+        )
+        target_lengths_ok = test_index["target_dates"].map(len).eq(int(window_cfg["horizon"])).all()
+        targets_inside_test = (
+            test_index["target_start_date"].min() >= dates["target_test_start"]
+            and test_index["target_end_date"].max() <= dates["target_test_end"]
+        )
+        if not (targets_non_overlapping and target_lengths_ok and targets_inside_test):
+            raise ValueError("test_index incumple horizonte, fronteras o no-solapamiento")
+
+        windows_dir.mkdir(parents=True, exist_ok=True)
+        daily_features.to_parquet(daily_features_path, index=False)
+        output_files: list[Path] = [daily_features_path]
+        for split, frame in windows.items():
+            path = window_path(windows_dir, split)
+            frame.to_parquet(path, index=False)
+            output_files.append(path)
+        test_index.to_parquet(test_index_path, index=False)
+        output_files.append(test_index_path)
+
+        report_rows = []
+        for split, frame in windows.items():
+            report_rows.append(
+                {
+                    "split": split,
+                    "stride": stride_map[split],
+                    "n_windows": int(len(frame)),
+                    "date_min": frame["window_start_date"].min().strftime("%Y-%m-%d"),
+                    "date_max": frame["window_end_date"].max().strftime("%Y-%m-%d"),
+                    "boundary_check": "PASS",
+                }
+            )
+        report_rows.append(
+            {
+                "split": "nvda_test",
+                "stride": int(window_cfg["strides"]["target_test"]),
+                "n_windows": int(len(test_index)),
+                "date_min": test_index["target_start_date"].min().strftime("%Y-%m-%d"),
+                "date_max": test_index["target_end_date"].max().strftime("%Y-%m-%d"),
+                "boundary_check": "PASS",
+            }
+        )
+        report = pd.DataFrame(report_rows)
+        report.to_csv(report_path, index=False)
+        output_files.append(report_path)
+        checksums = write_checksums(checksums_path, output_files)
+
+        counts = {split: int(len(frame)) for split, frame in windows.items()}
+        counts["nvda_test"] = int(len(test_index))
+        manifest = {
+            "data_version": DATA_VERSION,
+            "protocol_version": config["experiment"]["protocol_version"],
+            "built_at_utc": datetime.now(timezone.utc).isoformat(),
+            "config_path": str(config_path.relative_to(ROOT)).replace("\\", "/"),
+            "config_sha256": sha256_file(config_path),
+            "input_snapshots": {
+                str(clean_path.relative_to(ROOT)).replace("\\", "/"): clean_sha,
+                str(split_path.relative_to(ROOT)).replace("\\", "/"): split_sha,
+            },
+            "pipeline_order": [
+                "clean_daily_ohlcv",
+                "daily_split_assignments",
+                "features_within_each_block",
+                "windows_within_each_block",
+            ],
+            "channels": channels,
+            "formulas": {
+                "log_return": "ln(Close_t / Close_t_minus_1)",
+                "log_high_low_range": "ln(High_t / Low_t)",
+                "log1p_volume": "ln(1 + Volume_t)",
+            },
+            "window_length": length,
+            "context": int(window_cfg["context"]),
+            "horizon": int(window_cfg["horizon"]),
+            "strides": stride_map | {"nvda_test": int(window_cfg["strides"]["target_test"])},
+            "daily_feature_counts": {
+                block: int(len(frame)) for block, frame in daily_by_block.items()
+            },
+            "window_counts": counts,
+            "test_index": {
+                "n_rows": int(len(test_index)),
+                "target_date_min": test_index["target_start_date"].min().strftime("%Y-%m-%d"),
+                "target_date_max": test_index["target_end_date"].max().strftime("%Y-%m-%d"),
+                "targets_non_overlapping": targets_non_overlapping,
+                "all_targets_have_horizon_rows": bool(target_lengths_ok),
+                "all_targets_inside_test": bool(targets_inside_test),
+            },
+            "boundary_evidence": {
+                "donor_train": [str(dates["donor_train_start"].date()), str(dates["donor_train_end"].date())],
+                "donor_validation": [str(dates["donor_validation_start"].date()), str(dates["donor_validation_end"].date())],
+                "nvda_visible": [str(dates["target_visible_start"].date()), str(dates["target_visible_end"].date())],
+                "nvda_full_history": [str(dates["target_hidden_start"].date()), str(dates["target_visible_end"].date())],
+                "nvda_test_targets": [str(dates["target_test_start"].date()), str(dates["target_test_end"].date())],
+            },
+            "checksums_sha256": checksums,
+        }
+        write_json(manifest_path, manifest)
+    except Exception as exc:  # noqa: BLE001
+        print(f"FALLO features/windows: {exc}", file=sys.stderr)
         return 1
 
-    write_readme()
-
-    daily_parquet_sha = sha256_file(DAILY_PARQUET)
-    daily_csv_sha = sha256_file(DAILY_CSV)
-    readme_sha = sha256_file(README_PATH)
-    windows_shas = {s: sha256_file(windows_path(s)) for s in STRIDES}
-
-    checksums: dict[str, str] = {
-        str(DAILY_PARQUET.relative_to(ROOT)): daily_parquet_sha,
-        str(DAILY_CSV.relative_to(ROOT)): daily_csv_sha,
-    }
-    for s in STRIDES:
-        checksums[str(windows_path(s).relative_to(ROOT))] = windows_shas[s]
-    checksums[str(README_PATH.relative_to(ROOT))] = readme_sha
-
-    CHECKSUMS_PATH.write_text(
-        "\n".join(f"{digest}  {rel}" for rel, digest in checksums.items()) + "\n",
-        encoding="utf-8",
-    )
-
-    date_min = str(features["date"].min().date())
-    date_max = str(features["date"].max().date())
-
-    manifest = {
-        "data_version": DATA_VERSION,
-        "built_at_utc": datetime.now(timezone.utc).isoformat(),
-        "input_path": str(INPUT_PARQUET.relative_to(ROOT)),
-        "input_sha256_verified": input_sha,
-        "input_sha256_expected": EXPECTED_INPUT_SHA256,
-        "formulas": {
-            "log_return": "ln(Close_t / Close_{t-1})",
-            "log_high_low_range": "ln(High_t / Low_t); 0.0 if High == Low",
-            "log_volume": "ln(Volume_t); rows with Volume == 0 are dropped (no ln(1))",
-        },
-        "policies": {
-            "volume_eq_0": "DROP row before feature computation (no ln(1))",
-            "high_eq_low": "log_high_low_range = 0.0",
-            "gaps_vs_union_calendar": (
-                "no ffill; windows over consecutive rows of the features panel "
-                "(not calendar-filled days)"
-            ),
-            "winsorize": "NO",
-            "standardize_or_nvda_calibration": "NO (out of scope)",
-            "heteroscedasticity_outliers": (
-                "documented only; no winsorization in this version"
-            ),
-            "mixed_strides_in_one_train": (
-                "NO without team agreement; one parquet per stride is canonical"
-            ),
-        },
-        "rules_applied": APPLIED_RULES,
-        "rows_in_clean": rows_in,
-        "n_features_rows": n_features,
-        "n_features_rows_by_ticker": n_features_by_ticker,
-        "date_min_features": date_min,
-        "date_max_features": date_max,
-        "window_params": {
-            "T": T,
-            "strides": STRIDES,
-            "primary_stride": PRIMARY_STRIDE,
-            "primary_stride_note": (
-                "DEFAULT RECOMENDADO for the team's official comparable run; "
-                "other strides remain available as a menu"
-            ),
-            "channel_order": CHANNEL_ORDER,
-            "tensor_shape": [T, N_CHANNELS],
-            "features_flat_length": FLAT_LEN,
-            "features_flat_layout": (
-                "row-major: for t in 0..T-1, channels in channel_order; "
-                f"reshape({T}, {N_CHANNELS})"
-            ),
-            "n_windows_formula": (
-                "per ticker: floor((n_rows - T) / stride) + 1 if n_rows >= T else 0; "
-                "total = sum over tickers"
-            ),
-        },
-        "n_windows_total_by_stride": n_windows_total,
-        "n_windows_by_ticker_by_stride": n_windows_by_ticker,
-        "dropped": drop_stats,
-        "sanity_checks": {
-            "n_nonfinite_in_features": n_inf,
-            "count_formula_ok_by_stride": count_checks,
-            "reshape_vs_daily_stride1": True,
-            "reshape_vs_daily_stride65": True,
-        },
-        "legacy_removed": removed_legacy,
-        "schema": {
-            "daily_features_columns": FEATURE_COLS,
-            "windows_columns": [
-                "ticker",
-                "window_start_date",
-                "window_end_date",
-                "features_flat",
-            ],
-        },
-        "output_paths": {
-            "daily_features_parquet": str(DAILY_PARQUET.relative_to(ROOT)),
-            "daily_features_csv": str(DAILY_CSV.relative_to(ROOT)),
-            "windows_by_stride": {
-                f"stride{s}": str(windows_path(s).relative_to(ROOT)) for s in STRIDES
-            },
-            "manifest": str(MANIFEST_PATH.relative_to(ROOT)),
-            "checksums": str(CHECKSUMS_PATH.relative_to(ROOT)),
-            "readme": str(README_PATH.relative_to(ROOT)),
-        },
-        "checksums_sha256": checksums,
-        "notes": [
-            "Menú de datasets multi-stride para compañeros (VAE/GAN/Diffusion); "
-            "entrenamiento generativo fuera de este chat.",
-            "primary_stride=1 es DEFAULT RECOMENDADO comparable; no obliga a usarlo.",
-            "No mezclar strides en un mismo train sin acuerdo del equipo.",
-            "Splits train/val/test y calibración NVDA fuera de este chat.",
-            "No se modifica data/clean/.",
-            (
-                "1 fila Volume==0 dropeada (AMD 2015-01-02) si aplica; "
-                f"contado dropped_volume_eq_0={drop_stats['dropped_volume_eq_0']}."
-            ),
-            "Canónico 0.2.0: windows_65_stride*.parquet; legado windows_65.parquet eliminado.",
-        ],
-    }
-    MANIFEST_PATH.write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
-
-    print("OK — features + ventanas multi-stride")
-    print(f"  data_version:     {DATA_VERSION}")
-    print(f"  input sha256:     {input_sha}")
-    print(f"  primary_stride:   {PRIMARY_STRIDE}")
-    print(f"  n_features_rows:  {n_features}")
-    for s in STRIDES:
-        print(f"  n_windows s={s:<2}:   {n_windows_total[f'stride{s}']}")
-    print(f"  legacy removed:   {removed_legacy or '(none)'}")
-    print(f"  daily sha256:     {daily_parquet_sha}")
-    for s in STRIDES:
-        print(f"  windows s={s} sha: {windows_shas[s]}")
+    print("OK features y ventanas post-split")
+    for row in report.itertuples():
+        print(f"  {row.split}: n={row.n_windows} stride={row.stride} {row.date_min}->{row.date_max}")
     return 0
 
 

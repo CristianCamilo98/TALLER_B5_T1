@@ -1,0 +1,6 @@
+split,stride,n_windows,date_min,date_max,boundary_check
+donor_train,5,4910,2012-01-04,2021-12-30,PASS
+donor_validation,5,380,2022-01-04,2022-12-30,PASS
+nvda_visible,1,62,2022-07-05,2022-12-30,PASS
+nvda_full_history,1,2703,2012-01-04,2022-12-30,PASS
+nvda_test,5,150,2023-01-03,2025-12-29,PASS
