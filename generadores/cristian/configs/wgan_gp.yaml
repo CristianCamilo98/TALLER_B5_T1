@@ -1,0 +1,14 @@
+seed: 42
+latent_dim: 100
+batch_size: 64
+epochs: 5000
+n_critic: 5
+lambda_gp: 10.0
+learning_rate: 0.0001
+sample_interval: 200
+
+# Seeds oficiales (configs/experiment.yaml -> synthetic_experiment)
+official_seeds: [42, 123, 2026]
+
+# Ventanas sintéticas a generar por corrida (mezcla con reales = fase posterior)
+n_synthetic_windows: 5000
