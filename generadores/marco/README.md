@@ -74,6 +74,52 @@ empuja a aprender la relación correcta.
 
 ![Clasificador](figures/clasificador_calidad.png)
 
+
+## Sintético vs. donors (antes de calibrar) — validación de la generación pura
+
+Comparación adicional, en el espacio normalizado (z-score sobre `donor_train`,
+sin calibrar a NVDA) — aísla "¿aprendió bien el VAE la distribución de
+entrenamiento?" de "¿tiene sentido la calibración a NVDA?".
+
+| Referencia | Discriminative score |
+|---|---:|
+| `donor_train` | 0.013 (casi indistinguible) |
+| `donor_validation` | 0.268 |
+
+La brecha no es un fallo del generador: `donor_validation` es 2022 completo,
+ya identificado como año atípico (2º más volátil de la década, ligado a las
+subidas de tipos de la Fed) — el sintético se parece mucho a lo que
+entrenó (`donor_train`), y algo menos a un año que ya se desvía de esa
+distribución por sí mismo.
+
+### Autocorrelación temporal
+
+![Autocorrelación](figures/heatmap_autocorrelacion.png)
+
+`log_return` retiene solo el 0.5% de su varianza al generar (`log_high_low_range`:
+17.3%; `log1p_volume`: 49.2%). Causa: el decoder produce las 65 ventanas a
+partir de un único vector latente compartido, mediante convoluciones que
+generan salidas suaves y correlacionadas en el tiempo. Esto reproduce (e
+incluso **exagera**) canales con memoria real día a día (`log_high_low_range`,
+autocorrelación real 0.26 → el sintético la sostiene más lags de los reales;
+`log1p_volume`, 0.47 → mismo patrón), pero no puede replicar ruido
+genuinamente independiente como `log_return` (autocorrelación real ≈ -0.04,
+consistente con eficiencia de mercado) — ahí, en vez de sobre-suavizar, se
+repliega hacia la media y colapsa la varianza.
+
+## Comparabilidad entre generadores (VAE/GAN/Diffusion)
+
+`outputs/donor_synthetic_normalized_seed42.parquet` — 5000 ventanas sintéticas,
+espacio normalizado (z-score `donor_train`, **sin calibrar a NVDA**), seed=42.
+Protocolo de comparación en dos niveles, para separar "¿funciona la
+arquitectura?" de "¿sirve para el problema real?":
+
+1. **Generación pura**: cada generador compara su `*_normalized_seed42.parquet`
+   contra `donor_train`/`donor_validation` (marginales, t-SNE, discriminative
+   score) — mismo protocolo que arriba.
+2. **Tarea final**: cada generador calibrado a NVDA, mismo experimento de
+   mezclas contra `nvda_test` real.
+
 ## Limitaciones
 
 - **Colapso de varianza no uniforme por canal**: `log_return` retiene solo
