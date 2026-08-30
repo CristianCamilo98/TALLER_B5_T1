@@ -30,6 +30,8 @@ def generate_final_pool_figures(
     pools: dict[int, np.ndarray],
     visible_daily: pd.DataFrame,
     output_directory: Path | str,
+    *,
+    prefix: str = "diffusion",
 ) -> dict[str, Path]:
     if set(pools) != {42, 123, 2026}:
         raise ValueError("Plots require pools for seeds 42, 123, and 2026")
@@ -66,7 +68,7 @@ def generate_final_pool_figures(
     axis.set_title("Final Diffusion pool rejection rates")
     axis.grid(axis="y", alpha=0.25)
     figure.tight_layout()
-    path = output / "diffusion_final_pool_rejection_rates.png"
+    path = output / f"{prefix}_final_pool_rejection_rates.png"
     figure.savefig(path, dpi=160)
     plt.close(figure)
     paths["rejection_rates"] = path
@@ -85,7 +87,7 @@ def generate_final_pool_figures(
     axes[-1].legend()
     figure.suptitle("NVDA-like channel distributions by frozen Diffusion seed")
     figure.tight_layout()
-    path = output / "diffusion_nvda_like_channel_distributions_by_seed.png"
+    path = output / f"{prefix}_nvda_like_channel_distributions_by_seed.png"
     figure.savefig(path, dpi=160)
     plt.close(figure)
     paths["channel_distributions"] = path
@@ -113,7 +115,7 @@ def generate_final_pool_figures(
     axis.grid(alpha=0.2)
     axis.legend()
     figure.tight_layout()
-    path = output / "diffusion_nvda_like_return_distribution_vs_visible.png"
+    path = output / f"{prefix}_nvda_like_return_distribution_vs_visible.png"
     figure.savefig(path, dpi=160)
     plt.close(figure)
     paths["return_vs_visible"] = path

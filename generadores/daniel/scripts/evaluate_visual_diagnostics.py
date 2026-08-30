@@ -9,6 +9,8 @@ import subprocess
 import sys
 from time import perf_counter
 
+import torch
+
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
@@ -20,7 +22,7 @@ from generadores.daniel.src.final_pools import (  # noqa: E402
 )
 from generadores.daniel.src.frozen_runs import sha256_file  # noqa: E402
 from generadores.daniel.src.temporary_normalizer import (  # noqa: E402
-    TemporaryTickerChannelNormalizer,
+    GlobalChannelNormalizer,
 )
 from generadores.daniel.src.validation import CHANNEL_ORDER  # noqa: E402
 from generadores.daniel.src.visual_diagnostics_v2 import (  # noqa: E402
@@ -38,15 +40,17 @@ from generadores.daniel.src.visual_diagnostics_v2 import (  # noqa: E402
 REAL_SPLIT = "donor_validation"
 SYNTHETIC_SPACE = "normalized"
 SYNTHETIC_POOL_RELATIVE = Path(
-    "generadores/daniel/artifacts/samples/diffusion_seed42_normalized_5000.npz"
+    "generadores/daniel/artifacts/samples/"
+    "diffusion_seed42_global_channel_normalized_5000.npz"
 )
 FINAL_POOL_MANIFEST_RELATIVE = Path(
-    "generadores/daniel/artifacts/manifests/diffusion_seed42_final_pool.json"
+    "generadores/daniel/artifacts/manifests/"
+    "diffusion_seed42_global_channel_final_pool.json"
 )
 NORMALIZER_RELATIVE = Path(
-    "generadores/daniel/artifacts/manifests/diffusion_seed42_frozen_normalizer.json"
+    "generadores/daniel/artifacts/manifests/"
+    "diffusion_seed42_global_channel_normalizer.json"
 )
-NORMALIZER_SHA256 = "fc81f1d25d68680e5f29af97d1d6b37d877e2524e41103154e51695f64a59b8f"
 
 
 def _git(*arguments: str) -> str:
@@ -57,11 +61,11 @@ def _git(*arguments: str) -> str:
 
 def diagnostic_output_paths(artifact_root: Path) -> dict[str, Path]:
     return {
-        "marginals": artifact_root / "figures/diffusion_real_vs_synthetic_marginals.png",
-        "logistic": artifact_root / "figures/diffusion_real_vs_synthetic_logistic.png",
-        "tsne": artifact_root / "figures/diffusion_real_vs_synthetic_tsne.png",
+        "marginals": artifact_root / "figures/diffusion_global_channel_real_vs_synthetic_marginals.png",
+        "logistic": artifact_root / "figures/diffusion_global_channel_real_vs_synthetic_logistic.png",
+        "tsne": artifact_root / "figures/diffusion_global_channel_real_vs_synthetic_tsne.png",
         "manifest": artifact_root
-        / "manifests/diffusion_real_vs_synthetic_diagnostics.json",
+        / "manifests/diffusion_global_channel_real_vs_synthetic_diagnostics.json",
     }
 
 
@@ -76,16 +80,17 @@ def main() -> None:
     # The persisted train-only normalizer is reused verbatim. Validation is
     # transform-only: its observations cannot influence scaler parameters.
     normalizer_path = REPOSITORY_ROOT / NORMALIZER_RELATIVE
-    if sha256_file(normalizer_path) != NORMALIZER_SHA256:
-        raise RuntimeError("Frozen train-only normalizer hash mismatch")
-    normalizer = TemporaryTickerChannelNormalizer.load_json(normalizer_path)
-    validation = load_donor_windows(REAL_SPLIT, REPOSITORY_ROOT)
-    real_normalized = normalizer.transform(validation.tensor, validation.tickers).numpy()
-
-    synthetic_path = REPOSITORY_ROOT / SYNTHETIC_POOL_RELATIVE
     pool_manifest = json.loads(
         (REPOSITORY_ROOT / FINAL_POOL_MANIFEST_RELATIVE).read_text(encoding="utf-8")
     )
+    normalizer_sha256 = pool_manifest["normalizer_sha256"]
+    if sha256_file(normalizer_path) != normalizer_sha256:
+        raise RuntimeError("Frozen train-only normalizer hash mismatch")
+    normalizer = GlobalChannelNormalizer.load_json(normalizer_path)
+    validation = load_donor_windows(REAL_SPLIT, REPOSITORY_ROOT, dtype=torch.float64)
+    real_normalized = normalizer.transform(validation.tensor).numpy()
+
+    synthetic_path = REPOSITORY_ROOT / SYNTHETIC_POOL_RELATIVE
     if sha256_file(synthetic_path) != pool_manifest["normalized_pool_sha256"]:
         raise RuntimeError("Final normalized seed-42 pool hash mismatch")
     stored_pool = load_final_pool(synthetic_path)
@@ -105,7 +110,7 @@ def main() -> None:
     plot_tsne(tsne, outputs["tsne"])
 
     manifest = {
-        "run_id": "diffusion_real_vs_synthetic_diagnostics",
+        "run_id": "diffusion_global_channel_real_vs_synthetic_diagnostics",
         "diagnostic_scope": "generator_local_normalized_space_not_common_fidelity",
         "real_source": "data/features/windows/donor_validation.parquet",
         "real_source_sha256": validation.input_sha256,
@@ -120,7 +125,7 @@ def main() -> None:
         "flattened_features": 195,
         "channels": list(CHANNEL_ORDER),
         "normalizer_path": NORMALIZER_RELATIVE.as_posix(),
-        "normalizer_sha256": NORMALIZER_SHA256,
+        "normalizer_sha256": normalizer_sha256,
         "marginal_statistics": marginal_rows,
         "logistic": {
             "pipeline": ["StandardScaler", "LogisticRegression"],

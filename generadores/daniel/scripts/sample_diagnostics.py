@@ -34,18 +34,20 @@ from generadores.daniel.src.diagnostics import (  # noqa: E402
 )
 from generadores.daniel.src.diffusion import GaussianDiffusion  # noqa: E402
 from generadores.daniel.src.network import TemporalDenoiser  # noqa: E402
-from generadores.daniel.src.run_artifacts import read_manifest, validate_frozen_baseline  # noqa: E402
+from generadores.daniel.src.frozen_runs import verify_best_checkpoint_from_manifest  # noqa: E402
+from generadores.daniel.src.run_artifacts import (  # noqa: E402
+    GLOBAL_CHANNEL_RUN_IDS,
+    read_manifest,
+    validate_frozen_effective_config,
+)
 from generadores.daniel.src.sampler import DDPMSampler  # noqa: E402
 from generadores.daniel.src.temporary_normalizer import (  # noqa: E402
-    TemporaryTickerChannelNormalizer,
+    GlobalChannelNormalizer,
 )
 from generadores.daniel.src.validation import CHANNEL_ORDER  # noqa: E402
 
-TRAINING_RUN_ID = "diffusion_seed42_baseline"
-DIAGNOSTIC_RUN_ID = "diffusion_seed42_normalized_diagnostic"
-TRAINING_COMMIT = "d611f0efe2238197c08d24dc97cdfb60e02812d3"
-BASE_MASTER_COMMIT = "eb66f836d4eaafa6e32cc204f7c720d1f0400e18"
-BEST_CHECKPOINT_SHA256 = "33631ad41807c58bf555bd1f7f1d0bb13d590e3b6f8f3780aa29109a9f76d99e"
+TRAINING_RUN_ID = GLOBAL_CHANNEL_RUN_IDS[42]
+DIAGNOSTIC_RUN_ID = "diffusion_seed42_global_channel_normalized_diagnostic"
 DONOR_TRAIN_SHA256 = "5f1e33f69b02bad86d89dcc2f67a1018cef68aaeacfbf72c310a1b7902fc268f"
 DONOR_VALIDATION_SHA256 = "134f51a2ac9e546bf1a2f21f4efbf56a62bf019a08de14209058563b0a88ae23"
 N_SAMPLES = 1000
@@ -77,22 +79,19 @@ def main() -> None:
     diagnostic_commit = _git("rev-parse", "HEAD")
     artifact_root = REPOSITORY_ROOT / "generadores/daniel/artifacts"
     config_path = REPOSITORY_ROOT / "generadores/daniel/config/diffusion.yaml"
-    checkpoint_path = artifact_root / f"checkpoints/{TRAINING_RUN_ID}/best_model.pt"
     training_manifest_path = artifact_root / f"manifests/{TRAINING_RUN_ID}.json"
-    normalizer_path = artifact_root / "manifests/diffusion_seed42_normalizer.json"
-    sample_path = artifact_root / "samples/diffusion_seed42_normalized_diagnostic_1000.npz"
+    training_manifest = read_manifest(training_manifest_path)
+    checkpoint_path, checkpoint_hash_before = verify_best_checkpoint_from_manifest(
+        REPOSITORY_ROOT, training_manifest
+    )
+    normalizer_path = REPOSITORY_ROOT / training_manifest["normalizer_path"]
+    sample_path = artifact_root / "samples/diffusion_seed42_global_channel_normalized_diagnostic_1000.npz"
     manifest_path = artifact_root / f"manifests/{DIAGNOSTIC_RUN_ID}.json"
     table_directory = artifact_root / "manifests"
     figure_directory = artifact_root / "figures"
 
-    checkpoint_hash_before = sha256_file(checkpoint_path)
-    if checkpoint_hash_before != BEST_CHECKPOINT_SHA256:
-        raise RuntimeError("Best checkpoint hash does not match the certified run")
-    training_manifest = read_manifest(training_manifest_path)
-    if training_manifest["git_commit"] != TRAINING_COMMIT:
-        raise RuntimeError("Training manifest identifies an unexpected code commit")
-    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-    validate_frozen_baseline(config)
+    config = training_manifest["effective_config"]
+    validate_frozen_effective_config(config, 42)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if device == "cpu":
@@ -138,14 +137,16 @@ def main() -> None:
     ):
         raise RuntimeError("Stored sample pool failed round-trip verification")
 
-    train, validation = load_canonical_donor_tensors(REPOSITORY_ROOT)
+    train, validation = load_canonical_donor_tensors(
+        REPOSITORY_ROOT, dtype=torch.float64
+    )
     if train.input_sha256 != DONOR_TRAIN_SHA256:
         raise RuntimeError("donor_train hash mismatch")
     if validation.input_sha256 != DONOR_VALIDATION_SHA256:
         raise RuntimeError("donor_validation hash mismatch")
-    normalizer = TemporaryTickerChannelNormalizer.load_json(normalizer_path)
-    train_normalized = normalizer.transform(train.tensor, train.tickers)
-    validation_normalized = normalizer.transform(validation.tensor, validation.tickers)
+    normalizer = GlobalChannelNormalizer.load_json(normalizer_path)
+    train_normalized = normalizer.transform(train.tensor)
+    validation_normalized = normalizer.transform(validation.tensor)
     synthetic = samples.numpy()
 
     stats = channel_statistics(validation_normalized, synthetic)
@@ -162,12 +163,12 @@ def main() -> None:
     diversity = diversity_diagnostics(synthetic, seed=SAMPLING_SEED)
 
     table_paths = {
-        "channel_statistics": table_directory / "diffusion_seed42_normalized_channel_stats.csv",
-        "wasserstein": table_directory / "diffusion_seed42_normalized_wasserstein.csv",
-        "return_acf": table_directory / "diffusion_seed42_normalized_return_acf.csv",
-        "abs_return_acf": table_directory / "diffusion_seed42_normalized_abs_return_acf.csv",
-        "correlations": table_directory / "diffusion_seed42_normalized_correlations.csv",
-        "nearest_neighbor": table_directory / "diffusion_seed42_normalized_nearest_neighbor.csv",
+        "channel_statistics": table_directory / "diffusion_seed42_global_channel_stats.csv",
+        "wasserstein": table_directory / "diffusion_seed42_global_channel_wasserstein.csv",
+        "return_acf": table_directory / "diffusion_seed42_global_channel_return_acf.csv",
+        "abs_return_acf": table_directory / "diffusion_seed42_global_channel_abs_return_acf.csv",
+        "correlations": table_directory / "diffusion_seed42_global_channel_correlations.csv",
+        "nearest_neighbor": table_directory / "diffusion_seed42_global_channel_nearest_neighbor.csv",
     }
     table_directory.mkdir(parents=True, exist_ok=True)
     stats.to_csv(table_paths["channel_statistics"], index=False)
@@ -204,6 +205,7 @@ def main() -> None:
         validation_nn=memorization["validation_to_train"],
         synthetic_nn=memorization["synthetic_to_train"],
         output_directory=figure_directory,
+        prefix="diffusion_seed42_global_channel_normalized",
     )
     figure_paths = {
         name: _relative(Path(path)) for name, path in absolute_figure_paths.items()
@@ -221,9 +223,9 @@ def main() -> None:
         "n_samples": N_SAMPLES,
         "checkpoint_path": _relative(checkpoint_path),
         "checkpoint_sha256": checkpoint_hash_after,
-        "training_commit": TRAINING_COMMIT,
+        "training_commit": training_manifest["git_commit"],
         "diagnostic_commit": diagnostic_commit,
-        "base_master_commit": BASE_MASTER_COMMIT,
+        "base_master_commit": training_manifest["base_master_commit"],
         "donor_train_sha256": train.input_sha256,
         "donor_validation_sha256": validation.input_sha256,
         "normalizer_path": _relative(normalizer_path),

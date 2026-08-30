@@ -175,19 +175,42 @@ def test_sha256_format_rejects_wrong_length_and_non_hex() -> None:
         validate_sha256_hex("g" * 64)
 
 
-def test_real_frozen_checkpoints_match_authoritative_manifests() -> None:
+def test_real_global_channel_checkpoints_match_authoritative_manifests() -> None:
     import json
 
     artifact_root = ROOT / "generadores/daniel/artifacts"
+    expected_normalizer_sha256 = (
+        "7e0fcce9c67d6a01581df4bed12e130555b164e7e1f846c39b25b4996eecef8e"
+    )
+    observed_seeds = set()
+
     for seed in (42, 123, 2026):
-        manifest = json.loads(
-            (artifact_root / f"manifests/diffusion_seed{seed}_frozen.json").read_text(
-                encoding="utf-8"
-            )
+        legacy_manifest = artifact_root / f"manifests/diffusion_seed{seed}_frozen.json"
+        manifest_path = (
+            artifact_root / f"manifests/diffusion_seed{seed}_global_channel.json"
         )
+        assert not legacy_manifest.exists()
+        assert manifest_path.is_file()
+
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        observed_seeds.add(int(manifest["training_seed"]))
+        assert manifest["run_id"] == f"diffusion_seed{seed}_global_channel"
+        assert int(manifest["training_seed"]) == seed
+        assert (
+            manifest["normalization_type"]
+            == "global_channel_zscore_train_only_float64_fit"
+        )
+        assert manifest["normalizer_sha256"] == expected_normalizer_sha256
+
         path, calculated = verify_best_checkpoint_from_manifest(ROOT, manifest)
-        assert path.is_file()
+        expected_path = (
+            artifact_root
+            / f"checkpoints/diffusion_seed{seed}_global_channel/best_model.pt"
+        ).resolve()
+        assert path == expected_path
         assert calculated == manifest["best_checkpoint_sha256"]
+
+    assert observed_seeds == {42, 123, 2026}
 
 
 def test_checkpoint_mismatch_fails_before_sampling(tmp_path) -> None:

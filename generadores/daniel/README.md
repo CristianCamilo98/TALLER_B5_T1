@@ -5,10 +5,12 @@ intentionally isolated from the common core. The permanent model code accepts
 only tensors shaped `(N, 65, 3)`; it does not know about parquet files,
 tickers, dates, NVDA, downstream models, or test data.
 
-`src/data_adapter.py` and `src/temporary_normalizer.py` are temporary boundary
-adapters. They must be replaced when the project publishes the common loader
-and normalizer. The temporary normalizer is fitted only on donor-train values,
-with one mean and population standard deviation per ticker and channel.
+`src/data_adapter.py` is the local boundary adapter. The normalizer follows the
+team's global per-channel contract: donor-train is loaded in float64, one mean
+and population standard deviation are fitted per channel over all windows and
+sessions (`axes=(0, 1)`, `ddof=0`), and the normalized DDPM tensors are then
+converted to float32. Validation is transform-only. A standard deviation below
+`1e-8` is replaced by `1.0`.
 
 The frozen channel order is:
 
@@ -28,7 +30,7 @@ py -3.12 generadores/daniel/scripts/tiny_overfit.py --steps 150
 python generadores/daniel/scripts/train.py --seed 42
 python generadores/daniel/scripts/train.py --seed 123
 python generadores/daniel/scripts/train.py --seed 2026
-python generadores/daniel/scripts/plot_training.py --run-id diffusion_seed42_frozen
+python generadores/daniel/scripts/plot_training.py --run-id diffusion_seed42_global_channel
 python generadores/daniel/scripts/verify_frozen_runs.py
 python generadores/daniel/scripts/summarize_frozen_seeds.py
 python generadores/daniel/scripts/sample_diagnostics.py
@@ -37,8 +39,7 @@ python generadores/daniel/scripts/generate_final_pools.py --seed 123
 python generadores/daniel/scripts/generate_final_pools.py --seed 2026
 python generadores/daniel/scripts/summarize_final_pools.py
 python generadores/daniel/scripts/evaluate_visual_diagnostics.py
-python generadores/daniel/scripts/plot_training_diagnostics.py --run-id diffusion_seed42_frozen
-python generadores/daniel/scripts/train_long_diagnostic.py
+python generadores/daniel/scripts/plot_training_diagnostics.py --run-id diffusion_seed42_global_channel
 ```
 
 The smoke test performs one optimizer update and mechanical sampling only. The
@@ -62,7 +63,8 @@ and compares them with normalized donor validation. Its Wasserstein, ACF,
 correlation, nearest-neighbour, and diversity outputs are not the future common
 fidelity evaluation and must not be compared as final cross-generator scores.
 
-Final-pool generation uses each frozen best checkpoint without retraining. The
+Final-pool generation uses each global-normalized best checkpoint without
+retraining. The
 temporary NVDA calibrator reads only unique daily rows from the canonical
 `nvda_visible` feature block and applies `mean + std * normalized_sample` with
 population statistics. Physical validation rejects an entire window; it never
@@ -73,10 +75,32 @@ fidelity phase, not a replacement for it.
 Generated checkpoints, histories, samples, manifests, and figures belong
 under `artifacts/` and are excluded locally through `.git/info/exclude`.
 
+## Artifact lineage
+
+Artifacts named `diffusion_seed*_frozen`, `diffusion_seed*_normalized_5000`,
+or `diffusion_seed*_nvda_like_5000` were produced before normalization
+alignment and belong to the superseded `LEGACY_PER_TICKER` lineage. Current
+runtime artifacts use `global_channel` in every run, pool, manifest, table,
+and figure name and form the `CURRENT_GLOBAL_CHANNEL` lineage.
+
+## Common synthetic output
+
+The common output for cross-generator comparison is
+`outputs/diffusion_seed42_normalized.parquet`. It contains 5,000 unlabelled
+synthetic scenarios produced by the DDPM/Diffusion model with training seed
+42. Its logical tensor shape is `(5000, 65, 3)`, stored as one row per window
+with 195 session-major values in `features_flat`.
+
+The fixed channel order is `log_return`, `log_high_low_range`, and
+`log1p_volume`; the space is `global_channel_normalized`. These scenarios have
+no real dates or tickers. The Parquet is an exact export of the current
+global-channel seed-42 normalized pool and is intended as Daniel's common
+synthetic output for comparison with the other generators.
+
 ## Daniel-only visual diagnostics
 
 `evaluate_visual_diagnostics.py` compares normalized donor validation with a
-deterministic, balanced subset of the frozen seed-42 normalized pool. The
+deterministic, balanced subset of the global-channel seed-42 normalized pool. The
 marginal panels describe channel centre, dispersion, and tails, but not
 temporal dependence. The logistic classifier is a diagnostic rather than part
 of the generator: its ROC-AUC and accuracy use five-fold out-of-fold
@@ -86,9 +110,9 @@ PCA/t-SNE view is likewise descriptive and seed/parameter dependent, so it is
 not a model score or ranking. These local figures do not replace common
 fidelity evaluation.
 
-## Seed-42 long-training diagnostic
+## Seed-42 long-training diagnostic (not run during normalization alignment)
 
-`train_long_diagnostic.py` derives a separate experiment from the frozen
+`train_long_diagnostic.py` can derive a separate experiment from the current
 configuration. Its only changes are `max_epochs: 200 -> 300` and
 `early_stopping_patience: 20 -> 30`; it does not impose a minimum epoch count.
 All data, normalization, model, diffusion, optimizer, and validation settings

@@ -19,6 +19,7 @@ from generadores.daniel.src.run_artifacts import (
     REQUIRED_MANIFEST_FIELDS,
     frozen_config_for_seed,
     frozen_run_id,
+    global_channel_run_id,
     read_history,
     read_manifest,
     validate_frozen_baseline,
@@ -70,6 +71,7 @@ def test_runtime_seed_override_changes_only_training_seed() -> None:
         assert effective == expected
         assert effective["reproducibility"]["validation_seed"] == 424242
         assert frozen_run_id(seed) == f"diffusion_seed{seed}_frozen"
+        assert global_channel_run_id(seed) == f"diffusion_seed{seed}_global_channel"
     assert source == FROZEN_BASELINE
     with pytest.raises(ValueError, match="one of"):
         frozen_config_for_seed(source, 7)

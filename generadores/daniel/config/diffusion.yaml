@@ -21,6 +21,16 @@ training:
   max_epochs: 200
   early_stopping_patience: 20
 
+normalization:
+  type: global_channel_zscore
+  fit_split: donor_train
+  fit_axes: [0, 1]
+  fit_dtype: float64
+  output_dtype: float32
+  ddof: 0
+  std_threshold: 0.00000001
+  zero_variance_replacement: 1.0
+
 reproducibility:
   seed: 42
   validation_seed: 424242

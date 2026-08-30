@@ -14,6 +14,7 @@ import torch
 from .run_artifacts import (
     FROZEN_RUN_IDS,
     FROZEN_TRAINING_SEEDS,
+    GLOBAL_CHANNEL_RUN_IDS,
     read_history,
     read_manifest,
     validate_frozen_effective_config,
@@ -77,7 +78,11 @@ def verify_best_checkpoint_from_manifest(
     return checkpoint, calculated
 
 
-def validate_frozen_manifests(manifests: list[dict[str, Any]]) -> None:
+def validate_frozen_manifests(
+    manifests: list[dict[str, Any]],
+    *,
+    run_ids: dict[int, str] = FROZEN_RUN_IDS,
+) -> None:
     """Require the three manifests to differ experimentally only by seed."""
 
     if len(manifests) != len(FROZEN_TRAINING_SEEDS):
@@ -101,7 +106,7 @@ def validate_frozen_manifests(manifests: list[dict[str, Any]]) -> None:
         "validation_seed",
     )
     for seed, manifest in by_seed.items():
-        if manifest["run_id"] != FROZEN_RUN_IDS[seed]:
+        if manifest["run_id"] != run_ids[seed]:
             raise ValueError(f"Unexpected run_id for seed {seed}")
         validate_frozen_effective_config(manifest["effective_config"], seed)
         for field in invariant_fields:
@@ -109,8 +114,12 @@ def validate_frozen_manifests(manifests: list[dict[str, Any]]) -> None:
                 raise ValueError(f"Frozen runs differ in invariant field {field!r}")
 
 
-def build_frozen_summary(manifests: list[dict[str, Any]]) -> pd.DataFrame:
-    validate_frozen_manifests(manifests)
+def build_frozen_summary(
+    manifests: list[dict[str, Any]],
+    *,
+    run_ids: dict[int, str] = FROZEN_RUN_IDS,
+) -> pd.DataFrame:
+    validate_frozen_manifests(manifests, run_ids=run_ids)
     rows = []
     for manifest in sorted(manifests, key=lambda item: int(item["training_seed"])):
         rows.append(
@@ -178,5 +187,15 @@ def load_frozen_manifests(artifact_root: Path | str) -> list[dict[str, Any]]:
     root = Path(artifact_root)
     return [
         read_manifest(root / "manifests" / f"{FROZEN_RUN_IDS[seed]}.json")
+        for seed in FROZEN_TRAINING_SEEDS
+    ]
+
+
+def load_global_channel_manifests(artifact_root: Path | str) -> list[dict[str, Any]]:
+    """Load the three current global-normalized training manifests."""
+
+    root = Path(artifact_root)
+    return [
+        read_manifest(root / "manifests" / f"{GLOBAL_CHANNEL_RUN_IDS[seed]}.json")
         for seed in FROZEN_TRAINING_SEEDS
     ]

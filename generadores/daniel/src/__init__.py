@@ -4,7 +4,7 @@ from .data_adapter import DonorWindowBatch, load_canonical_donor_tensors
 from .diffusion import GaussianDiffusion
 from .network import TemporalDenoiser
 from .sampler import DDPMSampler
-from .temporary_normalizer import TemporaryTickerChannelNormalizer
+from .temporary_normalizer import GlobalChannelNormalizer
 from .validation import CHANNEL_ORDER, INPUT_CHANNELS, WINDOW_LENGTH
 
 __all__ = [
@@ -14,7 +14,7 @@ __all__ = [
     "GaussianDiffusion",
     "INPUT_CHANNELS",
     "TemporalDenoiser",
-    "TemporaryTickerChannelNormalizer",
+    "GlobalChannelNormalizer",
     "WINDOW_LENGTH",
     "load_canonical_donor_tensors",
 ]
