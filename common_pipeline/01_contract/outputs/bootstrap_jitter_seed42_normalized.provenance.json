@@ -1,0 +1,14 @@
+{
+  "source_model": "bootstrap_jitter",
+  "algorithm": "bootstrap_resample + gaussian_jitter",
+  "seed": 42,
+  "noise_scale": 0.05,
+  "donor_train_path": "data/features/windows/donor_train.parquet",
+  "donor_train_sha256": "b92a36a01b1931397d9a2c88c0f3473f224586b0193b0aefbb4e47f12eb00eca",
+  "n_windows": 5000,
+  "logical_shape": [
+    5000,
+    65,
+    3
+  ]
+}
