@@ -28,7 +28,10 @@
       ],
       "features_flat_length": 195,
       "normalization_status": "NORMALIZATION_NUMERICALLY_MATCHES",
-      "contract_status": "PASS"
+      "contract_status": "PASS",
+      "donor_lineage_status": "CANONICAL",
+      "expected_role": "bootstrap_jitter",
+      "official_role_status": "PASS"
     },
     {
       "method_id": "cristian",
@@ -54,7 +57,10 @@
       ],
       "features_flat_length": 195,
       "normalization_status": "NORMALIZATION_PROVENANCE_NOT_VERIFIABLE",
-      "contract_status": "PASS"
+      "contract_status": "PASS",
+      "donor_lineage_status": "NOT_VERIFIABLE",
+      "expected_role": "wgan_gp",
+      "official_role_status": "PASS"
     },
     {
       "method_id": "daniel",
@@ -80,7 +86,10 @@
       ],
       "features_flat_length": 195,
       "normalization_status": "NORMALIZATION_PROVENANCE_NOT_VERIFIABLE",
-      "contract_status": "PASS"
+      "contract_status": "PASS",
+      "donor_lineage_status": "NOT_VERIFIABLE",
+      "expected_role": "ddpm",
+      "official_role_status": "PASS"
     },
     {
       "method_id": "david",
@@ -106,7 +115,39 @@
       ],
       "features_flat_length": 195,
       "normalization_status": "NORMALIZATION_NUMERICALLY_MATCHES",
-      "contract_status": "PASS"
+      "contract_status": "PASS",
+      "donor_lineage_status": "NON_CANONICAL",
+      "expected_role": "normalizing_flow",
+      "official_role_status": "WRONG_ROLE"
+    },
+    {
+      "method_id": "marco",
+      "method_family": "neural_generator",
+      "source_model": "marco_vae",
+      "source_directory": "generadores/marco",
+      "path": "generadores/marco/outputs/donor_synthetic_normalized_seed42.parquet",
+      "sha256": "36f6830ffa7fae08c841fe30801b7f4caa6c4f54ea618afe39a8e9f60afd1591",
+      "rows": 5000,
+      "logical_shape": [
+        5000,
+        65,
+        3
+      ],
+      "training_seed": 42,
+      "space": "global_channel_normalized",
+      "window_length": 65,
+      "n_channels": 3,
+      "channel_order": [
+        "log_return",
+        "log_high_low_range",
+        "log1p_volume"
+      ],
+      "features_flat_length": 195,
+      "normalization_status": "NORMALIZATION_NUMERICALLY_MATCHES",
+      "contract_status": "PASS",
+      "donor_lineage_status": "NOT_VERIFIABLE",
+      "expected_role": "vae",
+      "official_role_status": "PASS"
     }
   ]
 }

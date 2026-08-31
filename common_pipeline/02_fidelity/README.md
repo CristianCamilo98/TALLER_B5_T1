@@ -5,9 +5,11 @@ implementation. Phase 01 is the sole contract authority: phase 02 reads
 `common_pipeline/01_contract/results/certified_outputs.json` and never
 discovers or approves generator files independently.
 
-By default a run fails fast unless the registry contains exactly four neural
-methods and one simple baseline. `--allow-partial` exists only for explicit
-smoke/tests and must not be used for official results.
+By default a run fails fast unless all four official generator roles and the
+simple baseline are satisfied. `--allow-partial` runs only the satisfied
+official roles plus the baseline and marks its manifest
+`PROVISIONAL_PARTIAL`; it never admits a wrong-role certified output and must
+not be used for final scientific results.
 
 ## Common protocol
 
@@ -34,7 +36,7 @@ python common_pipeline/02_fidelity/plot_fidelity.py
 python -m pytest -q common_pipeline/02_fidelity/tests
 ```
 
-For a non-official smoke run only:
+For an explicitly provisional, isolated run only:
 
 ```bash
 python common_pipeline/02_fidelity/evaluate_fidelity.py --allow-partial

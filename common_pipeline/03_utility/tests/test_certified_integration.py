@@ -27,7 +27,14 @@ def _treat_fixture_registries_as_fresh(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def _entry(root: Path, method_id: str, family: str, value: float = 0.0) -> dict:
+def _entry(
+    root: Path,
+    method_id: str,
+    family: str,
+    value: float = 0.0,
+    source_model: str | None = None,
+) -> dict:
+    source_model = source_model or method_id
     path = root / "outputs" / f"{method_id}.parquet"
     path.parent.mkdir(parents=True, exist_ok=True)
     window = np.full((65, 3), value, dtype=np.float32)
@@ -35,7 +42,7 @@ def _entry(root: Path, method_id: str, family: str, value: float = 0.0) -> dict:
     pd.DataFrame(
         {
             "synthetic_id": range(count),
-            "source_model": [method_id] * count,
+            "source_model": [source_model] * count,
             "training_seed": [42] * count,
             "space": ["global_channel_normalized"] * count,
             "window_length": [65] * count,
@@ -47,7 +54,7 @@ def _entry(root: Path, method_id: str, family: str, value: float = 0.0) -> dict:
     return {
         "method_id": method_id,
         "method_family": family,
-        "source_model": method_id,
+        "source_model": source_model,
         "source_directory": "outputs",
         "path": path.relative_to(root).as_posix(),
         "sha256": registry.sha256_file(path),
@@ -61,6 +68,7 @@ def _entry(root: Path, method_id: str, family: str, value: float = 0.0) -> dict:
         "features_flat_length": 195,
         "normalization_status": "NORMALIZATION_NUMERICALLY_MATCHES",
         "contract_status": "PASS",
+        "donor_lineage_status": "NOT_VERIFIABLE",
     }
 
 
@@ -70,10 +78,26 @@ def _registry(root: Path, methods: list[dict], name: str = "registry.json") -> P
     return path
 
 
-def test_dynamic_four_neural_plus_baseline_without_owner_names(tmp_path: Path) -> None:
-    names = ["alice", "bob", "charlie", "david_like_name"]
-    methods = [_entry(tmp_path, name, "neural_generator", index) for index, name in enumerate(names)]
-    methods.append(_entry(tmp_path, "simple_reference", "simple_baseline", 9.0))
+def test_dynamic_official_roles_plus_baseline(tmp_path: Path) -> None:
+    models = {
+        "cristian": "wgan_gp",
+        "daniel": "diffusion_ddpm",
+        "marco": "marco_vae",
+        "david": "normalizing_flow",
+    }
+    methods = [
+        _entry(tmp_path, owner, "neural_generator", index, model)
+        for index, (owner, model) in enumerate(models.items())
+    ]
+    methods.append(
+        _entry(
+            tmp_path,
+            "bootstrap_jitter",
+            "simple_baseline",
+            9.0,
+            "bootstrap_jitter",
+        )
+    )
     _entry(tmp_path, "new_generator_xyz", "neural_generator", 10.0)
     registry_path = _registry(tmp_path, methods)
     run_dir, _manifest = utility_run.prepare_run(
@@ -83,13 +107,27 @@ def test_dynamic_four_neural_plus_baseline_without_owner_names(tmp_path: Path) -
         run_id="complete",
     )
     pools = io_synthetic.load_pools_for_run(run_dir, repository_root=tmp_path)
-    assert set(pools) == {*names, "simple_reference"}
+    assert set(pools) == {*models, "bootstrap_jitter"}
     assert "new_generator_xyz" not in pools
 
 
 def test_utility_strict_mode_rejects_incomplete_registry(tmp_path: Path) -> None:
-    methods = [_entry(tmp_path, name, "neural_generator") for name in ["a", "b", "c"]]
-    methods.append(_entry(tmp_path, "simple", "simple_baseline"))
+    methods = [
+        _entry(tmp_path, owner, "neural_generator", source_model=model)
+        for owner, model in {
+            "cristian": "wgan_gp",
+            "daniel": "diffusion_ddpm",
+            "marco": "marco_vae",
+        }.items()
+    ]
+    methods.append(
+        _entry(
+            tmp_path,
+            "bootstrap_jitter",
+            "simple_baseline",
+            source_model="bootstrap_jitter",
+        )
+    )
     registry_path = _registry(tmp_path, methods)
     with pytest.raises(RuntimeError, match="FINAL RUN BLOCKED"):
         utility_run.prepare_run(
@@ -104,8 +142,16 @@ def test_utility_invokes_shared_registry_freshness_check(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    method = _entry(tmp_path, "alice", "neural_generator")
-    registry_path = _registry(tmp_path, [method])
+    method = _entry(
+        tmp_path, "cristian", "neural_generator", source_model="wgan_gp"
+    )
+    baseline = _entry(
+        tmp_path,
+        "bootstrap_jitter",
+        "simple_baseline",
+        source_model="bootstrap_jitter",
+    )
+    registry_path = _registry(tmp_path, [method, baseline])
     calls: list[Path] = []
 
     def record_freshness(payload: dict, *, repository_root: Path) -> dict:
@@ -149,8 +195,19 @@ def test_real_only_is_one_common_result(monkeypatch) -> None:
 
 
 def test_run_b_never_reads_run_a_calibrated_cache(tmp_path: Path) -> None:
-    method_a = _entry(tmp_path / "repo_a", "alice", "neural_generator", 1.0)
-    registry_a = _registry(tmp_path / "repo_a", [method_a], "registry.json")
+    method_a = _entry(
+        tmp_path / "repo_a", "cristian", "neural_generator", 1.0, "wgan_gp"
+    )
+    baseline_a = _entry(
+        tmp_path / "repo_a",
+        "bootstrap_jitter",
+        "simple_baseline",
+        9.0,
+        "bootstrap_jitter",
+    )
+    registry_a = _registry(
+        tmp_path / "repo_a", [method_a, baseline_a], "registry.json"
+    )
     run_a, _ = utility_run.prepare_run(
         registry_path=registry_a,
         repository_root=tmp_path / "repo_a",
@@ -158,8 +215,19 @@ def test_run_b_never_reads_run_a_calibrated_cache(tmp_path: Path) -> None:
         run_id="run_A",
         allow_partial=True,
     )
-    method_b = _entry(tmp_path / "repo_b", "alice", "neural_generator", 2.0)
-    registry_b = _registry(tmp_path / "repo_b", [method_b], "registry.json")
+    method_b = _entry(
+        tmp_path / "repo_b", "cristian", "neural_generator", 2.0, "wgan_gp"
+    )
+    baseline_b = _entry(
+        tmp_path / "repo_b",
+        "bootstrap_jitter",
+        "simple_baseline",
+        9.0,
+        "bootstrap_jitter",
+    )
+    registry_b = _registry(
+        tmp_path / "repo_b", [method_b, baseline_b], "registry.json"
+    )
     run_b, _ = utility_run.prepare_run(
         registry_path=registry_b,
         repository_root=tmp_path / "repo_b",
@@ -169,7 +237,7 @@ def test_run_b_never_reads_run_a_calibrated_cache(tmp_path: Path) -> None:
     )
 
     for run_dir, value in [(run_a, 11.0), (run_b, 22.0)]:
-        path = utility_run.calibrated_pool_path(run_dir, "alice")
+        path = utility_run.calibrated_pool_path(run_dir, "cristian")
         path.parent.mkdir(parents=True)
         np.savez_compressed(
             path,
@@ -180,7 +248,7 @@ def test_run_b_never_reads_run_a_calibrated_cache(tmp_path: Path) -> None:
             run_dir,
             {
                 "calibrated_pools": {
-                    "alice": {
+                    "cristian": {
                         "path": utility_run.run_relative_path(run_dir, path),
                         "sha256": registry.sha256_file(path),
                         "valid": 200,
@@ -189,5 +257,5 @@ def test_run_b_never_reads_run_a_calibrated_cache(tmp_path: Path) -> None:
                 }
             },
         )
-    loaded = build_mixtures.load_valid_calibrated_pool("alice", run_dir=run_b)
+    loaded = build_mixtures.load_valid_calibrated_pool("cristian", run_dir=run_b)
     assert np.all(loaded == 22.0)

@@ -51,9 +51,12 @@ def prepare_run(
         payload,
         repository_root=repository_root,
     )
-    contract_registry.ensure_registry_completeness(payload, allow_partial=allow_partial)
-    resolved = contract_registry.resolve_certified_paths(
+    selected_payload, selection = contract_registry.select_experiment_methods(
         payload,
+        allow_partial=allow_partial,
+    )
+    resolved = contract_registry.resolve_certified_paths(
+        selected_payload,
         repository_root=repository_root,
     )
     selected_run_id = run_id or default_run_id(registry_path)
@@ -64,6 +67,7 @@ def prepare_run(
     manifest_path = run_dir / "run_manifest.json"
     manifest = {
         "run_id": selected_run_id,
+        **selection,
         "git_commit": _git_commit(repository_root),
         "certified_registry_path": registry_path.relative_to(repository_root).as_posix(),
         "certified_registry_sha256": contract_registry.registry_sha256(registry_path),
@@ -106,6 +110,18 @@ def prepare_run(
             "certified_registry_path",
             "certified_registry_sha256",
             "allow_partial",
+            "run_mode",
+            "is_final_run",
+            "official_generators_present",
+            "official_generators_required",
+            "simple_baselines_present",
+            "simple_baselines_required",
+            "missing_official_roles",
+            "included_methods",
+            "excluded_certified_methods",
+            "role_assessments",
+            "lineage_warnings",
+            "strict_complete",
             "input_methods",
             "input_parquet_sha256",
             "subsampling_seeds",

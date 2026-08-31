@@ -60,6 +60,8 @@ def main(argv: list[str] | None = None) -> None:
         run_id=args.run_id,
         allow_partial=args.allow_partial,
     )
+    for warning in manifest.get("lineage_warnings", []):
+        print(f"[WARNING] {warning}")
     daily, start_date, end_date = reconstruct_unique_daily(str(NVDA_VISIBLE_PATH))
     n_unique_days = daily.shape[0]
     if n_unique_days != 126 or not np.isfinite(daily).all():

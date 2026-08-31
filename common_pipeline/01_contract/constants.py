@@ -75,4 +75,28 @@ EXPECTED_SIMPLE_BASELINES = 1
 NEURAL_METHOD_FAMILY = "neural_generator"
 SIMPLE_BASELINE_FAMILY = "simple_baseline"
 
+# Structural certification and membership in the official experiment are
+# separate decisions. A well-formed Parquet may still be the wrong model for
+# its owner's frozen experimental slot.
+OFFICIAL_GENERATOR_ROLES = {
+    "cristian": {"role": "wgan_gp", "aliases": ("wgan", "wgan_gp", "wgangp")},
+    "daniel": {
+        "role": "ddpm",
+        "aliases": ("ddpm", "diffusion_ddpm", "ddpm_temporal_1d"),
+    },
+    "marco": {
+        "role": "vae",
+        "aliases": ("vae", "timevae", "time_vae", "marco_vae"),
+    },
+    "david": {
+        "role": "normalizing_flow",
+        "aliases": ("normalizing_flow", "normalized_flow", "normalizingflow"),
+    },
+}
+OFFICIAL_BASELINE_ROLE = "bootstrap_jitter"
+
+DONOR_LINEAGE_CANONICAL = "CANONICAL"
+DONOR_LINEAGE_NON_CANONICAL = "NON_CANONICAL"
+DONOR_LINEAGE_NOT_VERIFIABLE = "NOT_VERIFIABLE"
+
 STATS_ATOL = 1e-6
