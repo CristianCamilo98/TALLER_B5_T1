@@ -24,12 +24,12 @@
     1.0933253360280637
   ],
   "donor_train_path": "data/features/windows/donor_train.parquet",
-  "donor_train_sha256": "ad4614a93cf05671ec3808fc96c7803d6f40916bde0c8593a981b695bee0b0bd",
+  "donor_train_sha256": "f1b848b21d593016508f599db59499206b86e85e3a9e669268b684123e4f0577",
   "n_windows": 5000,
   "logical_shape": [
     5000,
     65,
     3
   ],
-  "parquet_sha256": "0cf9be5d106783b62248b7b56f942ea121ef113640216eb8ba3b2889ba2230bf"
+  "parquet_sha256": "fe6fd3de1520de1e27ab15343f9412a775ac6511780699d5eb791c8c0c225888"
 }

@@ -21,6 +21,7 @@ CHANNEL_ORDER = ("log_return", "log_high_low_range", "log1p_volume")
 # la misma carpeta; un match de texto ambiguo podria coger el equivocado).
 KNOWN_NORMALIZED_FILES = {
     "cristian": "generadores/cristian/outputs/synthetic_seed42_n5000_normalized.parquet",
+    "david": "generadores/david/outputs/bootstrap_jitter_seed42_normalized.parquet",
     "daniel": "generadores/daniel/outputs/diffusion_seed42_normalized.parquet",
     "marco": "generadores/marco/outputs/donor_synthetic_normalized_seed42.parquet",
 }

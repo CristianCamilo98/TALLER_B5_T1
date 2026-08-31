@@ -1,11 +1,11 @@
 {
   "data_version": "daily-splits-1.0.0",
   "protocol_version": "common-core-1.0.0",
-  "built_at_utc": "2026-08-27T16:36:31.763346+00:00",
+  "built_at_utc": "2026-08-31T17:14:51.117674+00:00",
   "config_path": "configs/experiment.yaml",
-  "config_sha256": "7b105c539879e381e608c1d6f91d11e59c5832cd00c577994bb709e965dfa622",
+  "config_sha256": "caea53c079353cb8854434364d0f67a4cf195e5c05f5f10c9f1958f3eeacd639",
   "input_path": "data/clean/ohlcv_clean.parquet",
-  "input_snapshot_sha256_verified": "2e9da1ab9f8f58521fdfbdcc91daf05bb8720e9a865bab3f359fd819a23ffdb2",
+  "input_snapshot_sha256_verified": "43b26dcce77947860a48aa8cd4ebc57fdc105e0f60458a9520d1a870600b05d2",
   "assignment_order": "daily rows first; windows are not created by this stage",
   "date_rules": {
     "donor_train_start": "2012-01-03",
@@ -93,7 +93,7 @@
     ]
   },
   "checksums_sha256": {
-    "data/splits/daily_split_assignments.parquet": "b370d6eeaf2e1eefc7e968f999e715ca901c543e78d7653432ac1418e3d375a9",
+    "data/splits/daily_split_assignments.parquet": "011cbcbb0b702b2d4b36faba6e24f370215c52df7fd4050907bccd9e71aaa160",
     "data/splits/daily_split_report.csv": "bebeb0c986ad457f0ea5fd7cf4bb446efed3194859c69afc61315741c516e6b0"
   }
 }

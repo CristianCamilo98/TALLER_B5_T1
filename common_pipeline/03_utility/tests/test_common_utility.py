@@ -12,9 +12,16 @@ calibrate_nvda = importlib.import_module("common_pipeline.03_utility.calibrate_n
 validate_physical = importlib.import_module("common_pipeline.03_utility.validate_physical")
 build_mixtures = importlib.import_module("common_pipeline.03_utility.build_mixtures")
 features_target = importlib.import_module("common_pipeline.03_utility.features_target")
+io_synthetic = importlib.import_module("common_pipeline.03_utility.io_synthetic")
 
 
 # --- unique-day calibration + ddof0 ---
+
+def test_david_normalized_output_is_registered_for_utility():
+    assert io_synthetic.KNOWN_NORMALIZED_FILES["david"] == (
+        "generadores/david/outputs/bootstrap_jitter_seed42_normalized.parquet"
+    )
+
 
 def test_reconstruct_unique_daily_no_overlap_duplication(tmp_path):
     import pandas as pd

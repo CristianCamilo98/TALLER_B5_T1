@@ -1,12 +1,12 @@
 {
   "data_version": "features-windows-1.0.0",
   "protocol_version": "common-core-1.0.0",
-  "built_at_utc": "2026-08-27T16:36:32.650279+00:00",
+  "built_at_utc": "2026-08-31T17:14:55.598626+00:00",
   "config_path": "configs/experiment.yaml",
-  "config_sha256": "7b105c539879e381e608c1d6f91d11e59c5832cd00c577994bb709e965dfa622",
+  "config_sha256": "caea53c079353cb8854434364d0f67a4cf195e5c05f5f10c9f1958f3eeacd639",
   "input_snapshots": {
-    "data/clean/ohlcv_clean.parquet": "2e9da1ab9f8f58521fdfbdcc91daf05bb8720e9a865bab3f359fd819a23ffdb2",
-    "data/splits/daily_split_assignments.parquet": "b370d6eeaf2e1eefc7e968f999e715ca901c543e78d7653432ac1418e3d375a9"
+    "data/clean/ohlcv_clean.parquet": "43b26dcce77947860a48aa8cd4ebc57fdc105e0f60458a9520d1a870600b05d2",
+    "data/splits/daily_split_assignments.parquet": "011cbcbb0b702b2d4b36faba6e24f370215c52df7fd4050907bccd9e71aaa160"
   },
   "pipeline_order": [
     "clean_daily_ohlcv",
@@ -79,12 +79,12 @@
     ]
   },
   "checksums_sha256": {
-    "data/features/daily_features_by_split.parquet": "6cc2d5c7c1490e03e34b3b7dbf5fb49ce0c71d8a00fd81da6f2e38e2d8c3419e",
-    "data/features/windows/donor_train.parquet": "5f1e33f69b02bad86d89dcc2f67a1018cef68aaeacfbf72c310a1b7902fc268f",
-    "data/features/windows/donor_validation.parquet": "134f51a2ac9e546bf1a2f21f4efbf56a62bf019a08de14209058563b0a88ae23",
-    "data/features/windows/nvda_visible.parquet": "0e6f046313b56b046d2e5f19d5cf0b7b8e0b81060a04620c2f5bb6a7b245f6d3",
-    "data/features/windows/nvda_full_history.parquet": "19f651da100e6a304dda77831448d50a015e6eff5b9e019f6b3b2ffc6e908617",
-    "data/features/test_index.parquet": "64fe6f4c316d3746a6c28b233a3d4dddee587851163537bab79f1400a89be2c0",
+    "data/features/daily_features_by_split.parquet": "2d90adab17dc9e9b74ce673a57a4472e235c0350dbb4f70eb799c6a7287db632",
+    "data/features/windows/donor_train.parquet": "f1b848b21d593016508f599db59499206b86e85e3a9e669268b684123e4f0577",
+    "data/features/windows/donor_validation.parquet": "77190c5b7714af3032a6ec5d6063842a2e26ca5a6e6d225f23224c2ecfdcbab3",
+    "data/features/windows/nvda_visible.parquet": "78562948a6ee0bba33f2ab955f4580bc33781e7b1f1e95fd0ec2b9e483ab4fc4",
+    "data/features/windows/nvda_full_history.parquet": "5e125a112478df20d0d335553d88f06e2394e32ac2f7477cf9f5e25ea82597a7",
+    "data/features/test_index.parquet": "1928d11e0e5e06bbd25d6f554aadca92a52208af35987c7a46b3d17163bd44f6",
     "data/features/window_counts.csv": "bf2abcfc6b9fc5fa6fba1d6729c7a823e85df6494d1997997a44fc4806bf6ba1"
   }
 }

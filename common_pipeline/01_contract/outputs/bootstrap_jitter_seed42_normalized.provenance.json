@@ -4,7 +4,7 @@
   "seed": 42,
   "noise_scale": 0.05,
   "donor_train_path": "data/features/windows/donor_train.parquet",
-  "donor_train_sha256": "b92a36a01b1931397d9a2c88c0f3473f224586b0193b0aefbb4e47f12eb00eca",
+  "donor_train_sha256": "f1b848b21d593016508f599db59499206b86e85e3a9e669268b684123e4f0577",
   "n_windows": 5000,
   "logical_shape": [
     5000,

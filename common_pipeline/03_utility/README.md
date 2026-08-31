@@ -43,22 +43,23 @@ python -m pytest common_pipeline/03_utility/tests/ -v
 `results/calibrated_pools/*.npz` no esta versionado (regenerable via
 `validate_physical.py`, ver `.gitignore`).
 
-## Resultados (con los generator outputs disponibles al momento del merge)
+## Resultados (con los 4 generator outputs oficiales disponibles)
 
 | method | best_ratio | best_mean_rmse | delta_rmse_vs_real | invalid_rate |
 |---|---:|---:|---:|---:|
 | cristian | 0.75 | 0.2537 | -82.9% | 0.0% |
 | daniel | 0.75 | 0.2446 | -83.5% | 0.0% |
+| david | 0.75 | 0.2401 | -83.8% | 0.0% |
 | marco | 0.75 | 0.3509 | -76.3% | 0.0% |
 
-`real_only` identico en los 3 (RMSE=1.4796) -- confirma consistencia del
+`real_only` identico en los 4 (RMSE=1.4796) -- confirma consistencia del
 pipeline antes de que entre la variable experimental. Detalle completo en
 `results/tables/downstream_results_summary.csv` e `interpretation_summary.csv`.
 
-## Blockers de input conocidos (no corregidos aqui, ver Parte 11 del protocolo)
+## Blockers de input conocidos
 
-- Output del cuarto generador (baseline `01_contract`) aun no integrado via
-  path opcional -- el pipeline lo acepta pero no se ha ejecutado con el.
-- Ejecutado con 3 de 4 metodos (cristian, daniel, marco). El run definitivo
-  con los 4 y cifras oficiales queda pendiente de alineacion de todos los
-  generator outputs.
+- Ningun blocker de utility: esta fase se ha ejecutado con cristian, daniel,
+  david y marco.
+- La validacion estricta de `01_contract` sigue marcando problemas de esquema
+  en outputs previos de cristian/marco; no afecta a estas tablas de utility,
+  que consumen el contrato minimo `features_flat` y rutas oficiales fijadas.
