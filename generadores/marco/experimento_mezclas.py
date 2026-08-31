@@ -1,8 +1,7 @@
-import numpy as np
+﻿import numpy as np
 from sklearn.linear_model import Ridge
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error
-
 from generadores.marco.downstream_features import build_supervised_pairs
 
 real_windows = np.load("cache_nvda_visible_shared.npz")["values"]
@@ -24,21 +23,21 @@ ratios = {"real_only": 0.0, "mix_25": 0.25, "mix_50": 0.50, "mix_75": 0.75}
 all_results = {name: [] for name in list(ratios.keys()) + ["oracle"]}
 
 for seed in SEEDS:
-    rng = np.random.default_rng(seed)
-
-    def sample_synthetic(n):
-        idx = rng.choice(len(X_synth_pool), size=n, replace=False)
-        return X_synth_pool[idx], y_synth_pool[idx]
-
     datasets = {}
     for name, ratio in ratios.items():
         n_synth = int(round(n_real * ratio / (1 - ratio))) if ratio > 0 else 0
         if n_synth == 0:
             X_mix, y_mix = X_real, y_real
         else:
-            X_s, y_s = sample_synthetic(n_synth)
-            X_mix = np.concatenate([X_real, X_s], axis=0)
-            y_mix = np.concatenate([y_real, y_s], axis=0)
+            # rng NUEVO por cada (ratio, seed) -- no reutilizado entre ratios,
+            # para que mix_25/mix_50/mix_75 con la misma seed sean cada uno
+            # reproducible de forma AISLADA, sin depender de que se haya
+            # ejecutado antes otro ratio con esa seed (mismo criterio que
+            # graficar_rmse_vs_sintetico.py).
+            rng = np.random.default_rng(seed)
+            idx = rng.choice(len(X_synth_pool), size=n_synth, replace=False)
+            X_mix = np.concatenate([X_real, X_synth_pool[idx]], axis=0)
+            y_mix = np.concatenate([y_real, y_synth_pool[idx]], axis=0)
         datasets[name] = (X_mix, y_mix)
     datasets["oracle"] = (X_oracle, y_oracle)
 
