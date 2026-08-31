@@ -30,8 +30,14 @@ try:  # Package import from phases 02/03.
         GLOBAL_NORMALIZED_SPACE,
         NEURAL_METHOD_FAMILY,
         N_CHANNELS,
+        OFFICIAL_BASELINE_ROLE,
+        OFFICIAL_GENERATOR_ROLES,
         REPO_ROOT,
         SIMPLE_BASELINE_FAMILY,
+        DONOR_TRAIN_SHA256,
+        DONOR_LINEAGE_CANONICAL,
+        DONOR_LINEAGE_NON_CANONICAL,
+        DONOR_LINEAGE_NOT_VERIFIABLE,
         WINDOW_LENGTH,
     )
 except ImportError:  # Direct script execution from 01_contract.
@@ -47,8 +53,14 @@ except ImportError:  # Direct script execution from 01_contract.
         GLOBAL_NORMALIZED_SPACE,
         NEURAL_METHOD_FAMILY,
         N_CHANNELS,
+        OFFICIAL_BASELINE_ROLE,
+        OFFICIAL_GENERATOR_ROLES,
         REPO_ROOT,
         SIMPLE_BASELINE_FAMILY,
+        DONOR_TRAIN_SHA256,
+        DONOR_LINEAGE_CANONICAL,
+        DONOR_LINEAGE_NON_CANONICAL,
+        DONOR_LINEAGE_NOT_VERIFIABLE,
         WINDOW_LENGTH,
     )
 
@@ -70,6 +82,7 @@ REQUIRED_METHOD_FIELDS = {
     "features_flat_length",
     "normalization_status",
     "contract_status",
+    "donor_lineage_status",
 }
 
 
@@ -98,6 +111,52 @@ def _source_model(path: Path) -> str:
     return str(values[0])
 
 
+def _normalise_model_name(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", str(value).strip().lower()).strip("_")
+
+
+def _donor_lineage_status(path: Path) -> str:
+    """Use only explicit provenance; absence of evidence stays unverifiable."""
+
+    provenance_path = path.with_suffix(".provenance.json")
+    if not provenance_path.is_file():
+        return DONOR_LINEAGE_NOT_VERIFIABLE
+    try:
+        provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return DONOR_LINEAGE_NOT_VERIFIABLE
+    donor_sha = provenance.get("donor_train_sha256")
+    if not donor_sha:
+        return DONOR_LINEAGE_NOT_VERIFIABLE
+    if str(donor_sha) == DONOR_TRAIN_SHA256:
+        return DONOR_LINEAGE_CANONICAL
+    return DONOR_LINEAGE_NON_CANONICAL
+
+
+def _role_metadata(method_id: str, method_family: str, source_model: str) -> dict:
+    if method_family == SIMPLE_BASELINE_FAMILY:
+        status = (
+            "PASS"
+            if _normalise_model_name(source_model)
+            == _normalise_model_name(OFFICIAL_BASELINE_ROLE)
+            else "WRONG_ROLE"
+        )
+        return {
+            "expected_role": OFFICIAL_BASELINE_ROLE,
+            "official_role_status": status,
+        }
+
+    policy = OFFICIAL_GENERATOR_ROLES.get(str(method_id))
+    if policy is None:
+        return {"expected_role": None, "official_role_status": "UNOFFICIAL_OWNER"}
+    aliases = {_normalise_model_name(alias) for alias in policy["aliases"]}
+    status = "PASS" if _normalise_model_name(source_model) in aliases else "WRONG_ROLE"
+    return {
+        "expected_role": policy["role"],
+        "official_role_status": status,
+    }
+
+
 def certified_entry(
     output: Any,
     report: Any,
@@ -112,10 +171,12 @@ def certified_entry(
     if method_family not in {NEURAL_METHOD_FAMILY, SIMPLE_BASELINE_FAMILY}:
         raise ValueError(f"Unsupported method family {method_family!r}")
     relative_path = _repo_relative(output.path, repository_root)
+    resolved_method_id = method_id or output.generator_id
+    source_model = _source_model(output.path)
     return {
-        "method_id": method_id or output.generator_id,
+        "method_id": resolved_method_id,
         "method_family": method_family,
-        "source_model": _source_model(output.path),
+        "source_model": source_model,
         "source_directory": source_directory
         or Path(relative_path).parent.parent.as_posix(),
         "path": relative_path,
@@ -130,6 +191,8 @@ def certified_entry(
         "features_flat_length": FEATURE_DIM,
         "normalization_status": report.normalization_provenance,
         "contract_status": report.contract_status,
+        "donor_lineage_status": _donor_lineage_status(output.path),
+        **_role_metadata(resolved_method_id, method_family, source_model),
     }
 
 
@@ -167,6 +230,12 @@ def validate_registry_payload(payload: dict) -> None:
             raise ValueError(f"Certified registry entry missing fields: {sorted(missing)}")
         if method["contract_status"] != "PASS":
             raise ValueError("Certified registry cannot contain FAIL entries")
+        if method["donor_lineage_status"] not in {
+            DONOR_LINEAGE_CANONICAL,
+            DONOR_LINEAGE_NON_CANONICAL,
+            DONOR_LINEAGE_NOT_VERIFIABLE,
+        }:
+            raise ValueError("Certified registry has an unknown donor lineage status")
         method_ids.append(str(method["method_id"]))
         if method["method_family"] not in {
             NEURAL_METHOD_FAMILY,
@@ -336,13 +405,16 @@ def validate_registry_freshness(
     }
 
 
-def ensure_registry_completeness(
+def select_experiment_methods(
     payload: dict,
     *,
     allow_partial: bool = False,
     expected_neural: int | None = None,
     expected_baselines: int | None = None,
-) -> None:
+) -> tuple[dict, dict]:
+    """Select official role holders without weakening structural validation."""
+
+    validate_registry_payload(payload)
     neural_expected = int(
         payload["expected_neural_methods"] if expected_neural is None else expected_neural
     )
@@ -351,16 +423,127 @@ def ensure_registry_completeness(
         if expected_baselines is None
         else expected_baselines
     )
-    neural = sum(m["method_family"] == NEURAL_METHOD_FAMILY for m in payload["methods"])
-    baselines = sum(
-        m["method_family"] == SIMPLE_BASELINE_FAMILY for m in payload["methods"]
-    )
-    if not allow_partial and (neural != neural_expected or baselines != baseline_expected):
-        raise RuntimeError(
-            "FINAL RUN BLOCKED — REQUIRED CERTIFIED METHODS MISSING: "
-            f"neural={neural}/{neural_expected}, "
-            f"simple_baseline={baselines}/{baseline_expected}"
+    by_id = {str(method["method_id"]): method for method in payload["methods"]}
+    role_rows: list[dict] = []
+    selected_ids: list[str] = []
+    missing_roles: list[str] = []
+
+    for owner, policy in OFFICIAL_GENERATOR_ROLES.items():
+        method = by_id.get(owner)
+        if method is None:
+            role_rows.append(
+                {
+                    "owner": owner,
+                    "required_role": policy["role"],
+                    "method_id": None,
+                    "source_model": None,
+                    "structural_status": "MISSING",
+                    "official_role_status": "MISSING",
+                    "donor_lineage_status": DONOR_LINEAGE_NOT_VERIFIABLE,
+                }
+            )
+            missing_roles.append(f"{owner}:{policy['role']}")
+            continue
+
+        role = _role_metadata(owner, method["method_family"], method["source_model"])
+        donor_status = method.get(
+            "donor_lineage_status", DONOR_LINEAGE_NOT_VERIFIABLE
         )
+        eligible = (
+            method["method_family"] == NEURAL_METHOD_FAMILY
+            and role["official_role_status"] == "PASS"
+            and donor_status != DONOR_LINEAGE_NON_CANONICAL
+        )
+        role_rows.append(
+            {
+                "owner": owner,
+                "required_role": policy["role"],
+                "method_id": owner,
+                "source_model": method["source_model"],
+                "structural_status": method["contract_status"],
+                "official_role_status": role["official_role_status"],
+                "donor_lineage_status": donor_status,
+            }
+        )
+        if eligible:
+            selected_ids.append(owner)
+        else:
+            missing_roles.append(f"{owner}:{policy['role']}")
+
+    baseline_methods = [
+        method
+        for method in payload["methods"]
+        if method["method_family"] == SIMPLE_BASELINE_FAMILY
+        and _role_metadata(
+            str(method["method_id"]), method["method_family"], method["source_model"]
+        )["official_role_status"]
+        == "PASS"
+        and method.get("donor_lineage_status", DONOR_LINEAGE_NOT_VERIFIABLE)
+        != DONOR_LINEAGE_NON_CANONICAL
+    ]
+    baseline_ids = [str(method["method_id"]) for method in baseline_methods]
+    selected_ids.extend(baseline_ids)
+    official_present = sum(
+        method_id in selected_ids for method_id in OFFICIAL_GENERATOR_ROLES
+    )
+    baselines_present = len(baseline_ids)
+    complete = (
+        official_present == neural_expected
+        and baselines_present == baseline_expected
+        and len(OFFICIAL_GENERATOR_ROLES) == neural_expected
+    )
+    if baselines_present != baseline_expected or (not allow_partial and not complete):
+        raise RuntimeError(
+            "FINAL RUN BLOCKED — REQUIRED OFFICIAL METHODS MISSING: "
+            f"official_generators={official_present}/{neural_expected}, "
+            f"simple_baseline={baselines_present}/{baseline_expected}, "
+            f"missing_official_roles={missing_roles}"
+        )
+
+    selected = [
+        dict(method)
+        for method in payload["methods"]
+        if str(method["method_id"]) in selected_ids
+    ]
+    lineage_warnings = sorted(
+        f"{method['method_id']}: donor lineage NOT_VERIFIABLE"
+        for method in selected
+        if method.get("donor_lineage_status") == DONOR_LINEAGE_NOT_VERIFIABLE
+    )
+    selected_payload = dict(payload)
+    selected_payload["methods"] = selected
+    summary = {
+        "run_mode": "PROVISIONAL_PARTIAL" if allow_partial else "STRICT_FINAL",
+        "is_final_run": not allow_partial,
+        "official_generators_present": official_present,
+        "official_generators_required": neural_expected,
+        "simple_baselines_present": baselines_present,
+        "simple_baselines_required": baseline_expected,
+        "missing_official_roles": missing_roles,
+        "included_methods": sorted(selected_ids),
+        "excluded_certified_methods": sorted(set(by_id) - set(selected_ids)),
+        "role_assessments": role_rows,
+        "lineage_warnings": lineage_warnings,
+        "strict_complete": complete,
+    }
+    selected_payload["experiment_selection"] = summary
+    return selected_payload, summary
+
+
+def ensure_registry_completeness(
+    payload: dict,
+    *,
+    allow_partial: bool = False,
+    expected_neural: int | None = None,
+    expected_baselines: int | None = None,
+) -> dict:
+    _selected, summary = select_experiment_methods(
+        payload,
+        allow_partial=allow_partial,
+        expected_neural=expected_neural,
+        expected_baselines=expected_baselines,
+    )
+    return summary
 
 
 def resolve_certified_paths(

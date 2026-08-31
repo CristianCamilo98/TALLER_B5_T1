@@ -1,10 +1,11 @@
 # Common synthetic utility pipeline
 
-This module consumes only the phase-01 certified registry. Method discovery is
-dynamic and independent of owners or model names. The default final behavior
-is strict: four certified neural methods and one certified simple baseline are
-required. `--allow-partial` is available only when explicitly creating a
-smoke run at the calibration entry point.
+This module consumes only the phase-01 certified registry. Method selection is
+driven by the central phase-01 official-role policy. The default final
+behavior is strict: WGAN-GP, DDPM, VAE, Normalizing Flow, and the certified
+simple baseline are required. `--allow-partial` explicitly creates a
+`PROVISIONAL_PARTIAL` run containing only currently satisfied official roles
+plus the baseline; wrong-role outputs remain excluded.
 
 ## Run isolation
 

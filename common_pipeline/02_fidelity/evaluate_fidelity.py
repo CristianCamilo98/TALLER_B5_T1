@@ -75,15 +75,15 @@ def load_registry_methods(
         payload,
         repository_root=repository_root,
     )
-    contract_registry.ensure_registry_completeness(
+    selected_payload, _selection = contract_registry.select_experiment_methods(
         payload,
         allow_partial=allow_partial,
     )
     resolved = contract_registry.resolve_certified_paths(
-        payload,
+        selected_payload,
         repository_root=repository_root,
     )
-    return payload, resolved
+    return selected_payload, resolved
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -129,6 +129,8 @@ def main(argv: list[str] | None = None) -> int:
         repository_root=repository_root,
         allow_partial=args.allow_partial,
     )
+    for warning in registry_payload["experiment_selection"]["lineage_warnings"]:
+        print(f"[WARNING] {warning}")
 
     donor_train_path = repository_root / "data/features/windows/donor_train.parquet"
     donor_validation_path = (
@@ -199,7 +201,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     subset_digest = hashlib.sha256(indices.astype("<i8").tobytes()).hexdigest()
     manifest = {
+        "run_id": results_dir.name,
         "protocol": "common_normalized_fidelity_v1",
+        **registry_payload["experiment_selection"],
         "real_reference": repository_relative(donor_validation_path, repository_root),
         "nearest_neighbor_reference": repository_relative(
             donor_train_path, repository_root

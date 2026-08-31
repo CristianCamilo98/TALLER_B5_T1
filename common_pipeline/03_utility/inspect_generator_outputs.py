@@ -16,8 +16,10 @@ def main() -> None:
     parser.add_argument("--allow-partial", action="store_true")
     args = parser.parse_args()
     payload = registry.load_certified_registry(args.registry_path)
-    registry.ensure_registry_completeness(payload, allow_partial=args.allow_partial)
-    for method in payload["methods"]:
+    selected_payload, _selection = registry.select_experiment_methods(
+        payload, allow_partial=args.allow_partial
+    )
+    for method in selected_payload["methods"]:
         print(
             f"{method['method_id']}: {method['path']} "
             f"{tuple(method['logical_shape'])} {method['method_family']}"

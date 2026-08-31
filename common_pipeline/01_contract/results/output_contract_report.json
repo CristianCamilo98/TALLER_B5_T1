@@ -1,8 +1,6 @@
 {
-  "discovery_ok": false,
-  "discovery_errors": [
-    "marco: column set ['sample_id', 'features_flat'] != reference ['synthetic_id', 'source_model', 'training_seed', 'space', 'window_length', 'n_channels', 'channel_order', 'features_flat']"
-  ],
+  "discovery_ok": true,
+  "discovery_errors": [],
   "generators": [
     {
       "generator": "cristian",
@@ -52,21 +50,17 @@
     {
       "generator": "marco",
       "file": "donor_synthetic_normalized_seed42.parquet",
-      "sha256": "8fda1874acec2b9136919d5dee9fcbbe268ffe35c9045a8f2f96e6d70de1c4fd",
+      "sha256": "36f6830ffa7fae08c841fe30801b7f4caa6c4f54ea618afe39a8e9f60afd1591",
       "rows": 5000,
       "logical_shape": "(5000,65,3)",
-      "training_seed": null,
-      "space": null,
-      "channel_order": "unknown",
+      "training_seed": 42,
+      "space": "global_channel_normalized",
+      "channel_order": "['log_return', 'log_high_low_range', 'log1p_volume']",
       "finite": "YES",
       "exact_duplicates": 0,
-      "normalization_provenance": "NORMALIZATION_MISMATCH",
-      "contract_status": "FAIL",
-      "errors": [
-        "missing canonical columns: ['synthetic_id', 'source_model', 'training_seed', 'space', 'window_length', 'n_channels', 'channel_order']",
-        "unexpected extra columns: ['sample_id']",
-        "normalization provenance indicates mismatch with canonical normalizer"
-      ]
+      "normalization_provenance": "NORMALIZATION_NUMERICALLY_MATCHES",
+      "contract_status": "PASS",
+      "errors": []
     },
     {
       "generator": "bootstrap_jitter",

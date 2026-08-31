@@ -24,7 +24,10 @@ def _treat_fixture_registries_as_fresh(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def _method(root: Path, method_id: str, family: str) -> dict:
+def _method(
+    root: Path, method_id: str, family: str, source_model: str | None = None
+) -> dict:
+    source_model = source_model or method_id
     path = root / "published" / f"{method_id}.parquet"
     path.parent.mkdir(parents=True, exist_ok=True)
     window = np.zeros((65, 3), dtype=np.float32)
@@ -32,7 +35,7 @@ def _method(root: Path, method_id: str, family: str) -> dict:
     frame = pd.DataFrame(
         {
             "synthetic_id": range(count),
-            "source_model": [method_id] * count,
+            "source_model": [source_model] * count,
             "training_seed": [42] * count,
             "space": ["global_channel_normalized"] * count,
             "window_length": [65] * count,
@@ -45,7 +48,7 @@ def _method(root: Path, method_id: str, family: str) -> dict:
     return {
         "method_id": method_id,
         "method_family": family,
-        "source_model": method_id,
+        "source_model": source_model,
         "source_directory": "published",
         "path": path.relative_to(root).as_posix(),
         "sha256": registry.sha256_file(path),
@@ -59,15 +62,26 @@ def _method(root: Path, method_id: str, family: str) -> dict:
         "features_flat_length": 195,
         "normalization_status": "NORMALIZATION_NUMERICALLY_MATCHES",
         "contract_status": "PASS",
+        "donor_lineage_status": "NOT_VERIFIABLE",
     }
 
 
-def test_arbitrary_certified_names_are_loaded_and_unregistered_file_is_ignored(
+def test_official_roles_are_loaded_and_unregistered_file_is_ignored(
     tmp_path: Path,
 ) -> None:
-    names = ["alice", "bob", "charlie", "david_like_name"]
-    methods = [_method(tmp_path, name, "neural_generator") for name in names]
-    methods.append(_method(tmp_path, "simple_reference", "simple_baseline"))
+    models = {
+        "cristian": "wgan_gp",
+        "daniel": "diffusion_ddpm",
+        "marco": "marco_vae",
+        "david": "normalizing_flow",
+    }
+    methods = [
+        _method(tmp_path, owner, "neural_generator", model)
+        for owner, model in models.items()
+    ]
+    methods.append(
+        _method(tmp_path, "bootstrap_jitter", "simple_baseline", "bootstrap_jitter")
+    )
     # This conforming-looking file is deliberately absent from the registry.
     _method(tmp_path, "new_generator_xyz", "neural_generator")
     registry_path = tmp_path / "certified_outputs.json"
@@ -78,16 +92,22 @@ def test_arbitrary_certified_names_are_loaded_and_unregistered_file_is_ignored(
         repository_root=tmp_path,
         allow_partial=False,
     )
-    assert set(resolved) == {*names, "simple_reference"}
+    assert set(resolved) == {*models, "bootstrap_jitter"}
     assert "new_generator_xyz" not in resolved
 
 
 def test_strict_registry_rejects_three_neural_plus_baseline(tmp_path: Path) -> None:
     methods = [
-        _method(tmp_path, name, "neural_generator")
-        for name in ["alice", "bob", "charlie"]
+        _method(tmp_path, owner, "neural_generator", model)
+        for owner, model in {
+            "cristian": "wgan_gp",
+            "daniel": "diffusion_ddpm",
+            "marco": "marco_vae",
+        }.items()
     ]
-    methods.append(_method(tmp_path, "simple_reference", "simple_baseline"))
+    methods.append(
+        _method(tmp_path, "bootstrap_jitter", "simple_baseline", "bootstrap_jitter")
+    )
     registry_path = tmp_path / "certified_outputs.json"
     registry.write_certified_registry(methods, path=registry_path)
     with pytest.raises(RuntimeError, match="FINAL RUN BLOCKED"):
@@ -102,9 +122,12 @@ def test_fidelity_invokes_shared_registry_freshness_check(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    method = _method(tmp_path, "alice", "neural_generator")
+    method = _method(tmp_path, "cristian", "neural_generator", "wgan_gp")
+    baseline = _method(
+        tmp_path, "bootstrap_jitter", "simple_baseline", "bootstrap_jitter"
+    )
     registry_path = tmp_path / "certified_outputs.json"
-    registry.write_certified_registry([method], path=registry_path)
+    registry.write_certified_registry([method, baseline], path=registry_path)
     calls: list[Path] = []
 
     def record_freshness(payload: dict, *, repository_root: Path) -> dict:
