@@ -7,7 +7,7 @@ import pandas as pd
 import tensorflow as tf
 import yaml
 
-from .data import load_normalizer, synthetic_windows_to_frame
+from .data import load_normalizer, synthetic_seed_column, synthetic_windows_to_contract_frame, synthetic_windows_to_local_frame
 from .io import load_generator, save_synthetic_outputs
 from .metrics import compare_parquet_splits, save_validation_report
 from .paths import artifacts_dir, cristian_root, default_windows_dir, outputs_dir
@@ -75,7 +75,7 @@ def generate_synthetic_for_seed(
     generated = normalizer.denormalize(generated_norm.astype(np.float64))
 
     output_path = output or synthetic_parquet_path(seed, n)
-    frame = synthetic_windows_to_frame(
+    frame = synthetic_windows_to_local_frame(
         generated,
         seed=seed,
         ratio=None,
@@ -84,11 +84,9 @@ def generate_synthetic_for_seed(
     parquet_path, csv_path = save_synthetic_outputs(frame, output_path)
 
     normalized_path = synthetic_parquet_path_normalized(seed, n)
-    frame_normalized = synthetic_windows_to_frame(
-        generated_norm.astype(np.float64),
-        seed=seed,
-        ratio=None,
-        checkpoint=str(checkpoint),
+    frame_normalized = synthetic_windows_to_contract_frame(
+        generated_norm,
+        training_seed=seed,
     )
     norm_parquet_path, norm_csv_path = save_synthetic_outputs(frame_normalized, normalized_path)
 
@@ -163,8 +161,13 @@ def load_synthetic_parquets(seeds: list[int] | None = None) -> tuple[pd.DataFram
     return combined, paths
 
 
+def _seed_column(frame: pd.DataFrame) -> str:
+    return synthetic_seed_column(frame)
+
+
 def split_synthetic_by_seed(synthetic: pd.DataFrame) -> dict[int, pd.DataFrame]:
+    col = _seed_column(synthetic)
     return {
-        int(seed): synthetic.loc[synthetic["seed"].eq(seed)].reset_index(drop=True)
-        for seed in sorted(synthetic["seed"].unique())
+        int(seed): synthetic.loc[synthetic[col].eq(seed)].reset_index(drop=True)
+        for seed in sorted(synthetic[col].unique())
     }

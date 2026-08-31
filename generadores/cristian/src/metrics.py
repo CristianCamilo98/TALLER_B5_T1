@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .data import CHANNELS, WINDOW_LENGTH, windows_to_array
+from .data import CHANNELS, WINDOW_LENGTH, synthetic_seed_column, windows_to_array
 
 
 def channel_summary(windows: np.ndarray) -> pd.DataFrame:
@@ -131,8 +131,9 @@ def per_seed_validation_summary(
     synthetic_frame: pd.DataFrame,
 ) -> pd.DataFrame:
     rows: list[dict] = []
-    for seed in sorted(int(value) for value in synthetic_frame["seed"].unique()):
-        subset = synthetic_frame.loc[synthetic_frame["seed"].eq(seed)]
+    seed_col = synthetic_seed_column(synthetic_frame)
+    for seed in sorted(int(value) for value in synthetic_frame[seed_col].unique()):
+        subset = synthetic_frame.loc[synthetic_frame[seed_col].eq(seed)]
         report = compare_parquet_splits(real_frame, subset)
         real_summary = report.channel_summary_real.set_index("channel")
         synth_summary = report.channel_summary_synthetic.set_index("channel")
@@ -163,8 +164,9 @@ def per_seed_mmd_summary(
     synthetic_frame: pd.DataFrame,
 ) -> pd.DataFrame:
     rows: list[dict] = []
-    for seed in sorted(int(value) for value in synthetic_frame["seed"].unique()):
-        subset = synthetic_frame.loc[synthetic_frame["seed"].eq(seed)]
+    seed_col = synthetic_seed_column(synthetic_frame)
+    for seed in sorted(int(value) for value in synthetic_frame[seed_col].unique()):
+        subset = synthetic_frame.loc[synthetic_frame[seed_col].eq(seed)]
         report = compare_parquet_splits(real_frame, subset)
         rows.append(
             {
