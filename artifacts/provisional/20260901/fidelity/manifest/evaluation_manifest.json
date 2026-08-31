@@ -1,0 +1,175 @@
+{
+  "run_id": "fidelity_provisional_master_20260901",
+  "protocol": "common_normalized_fidelity_v1",
+  "run_mode": "PROVISIONAL_PARTIAL",
+  "is_final_run": false,
+  "official_generators_present": 3,
+  "official_generators_required": 4,
+  "simple_baselines_present": 1,
+  "simple_baselines_required": 1,
+  "missing_official_roles": [
+    "david:normalizing_flow"
+  ],
+  "included_methods": [
+    "bootstrap_jitter",
+    "cristian",
+    "daniel",
+    "marco"
+  ],
+  "excluded_certified_methods": [
+    "david"
+  ],
+  "role_assessments": [
+    {
+      "owner": "cristian",
+      "required_role": "wgan_gp",
+      "method_id": "cristian",
+      "source_model": "wgan_gp",
+      "structural_status": "PASS",
+      "official_role_status": "PASS",
+      "donor_lineage_status": "NOT_VERIFIABLE"
+    },
+    {
+      "owner": "daniel",
+      "required_role": "ddpm",
+      "method_id": "daniel",
+      "source_model": "diffusion_ddpm",
+      "structural_status": "PASS",
+      "official_role_status": "PASS",
+      "donor_lineage_status": "NOT_VERIFIABLE"
+    },
+    {
+      "owner": "marco",
+      "required_role": "vae",
+      "method_id": "marco",
+      "source_model": "marco_vae",
+      "structural_status": "PASS",
+      "official_role_status": "PASS",
+      "donor_lineage_status": "NOT_VERIFIABLE"
+    },
+    {
+      "owner": "david",
+      "required_role": "normalizing_flow",
+      "method_id": "david",
+      "source_model": "temporal_jitter_0p40_rho0p85",
+      "structural_status": "PASS",
+      "official_role_status": "WRONG_ROLE",
+      "donor_lineage_status": "NON_CANONICAL"
+    }
+  ],
+  "lineage_warnings": [
+    "cristian: donor lineage NOT_VERIFIABLE",
+    "daniel: donor lineage NOT_VERIFIABLE",
+    "marco: donor lineage NOT_VERIFIABLE"
+  ],
+  "strict_complete": false,
+  "real_reference": "data/features/windows/donor_validation.parquet",
+  "nearest_neighbor_reference": "data/features/windows/donor_train.parquet",
+  "real_count": 380,
+  "real_shape": [
+    380,
+    65,
+    3
+  ],
+  "synthetic_pool_count": 5000,
+  "evaluation_subset_size": 380,
+  "evaluation_subset_seed": 42,
+  "evaluation_subset_indices_sha256": "565dfe11aae6f27f08e7e228dd7b66b6741c4939ef093052f9fb4c85c43e7e36",
+  "channel_order": [
+    "log_return",
+    "log_high_low_range",
+    "log1p_volume"
+  ],
+  "space": "global_channel_normalized",
+  "normalization": {
+    "fit_split": "donor_train",
+    "fit_axes": [
+      0,
+      1
+    ],
+    "fit_dtype": "float64",
+    "output_dtype": "float32",
+    "ddof": 0,
+    "mean": [
+      0.0008114289710088066,
+      0.02602580514891484,
+      16.06027218135258
+    ],
+    "std": [
+      0.023515504591060377,
+      0.01672428879172832,
+      1.0933253360280637
+    ]
+  },
+  "synthetic_methods": {
+    "bootstrap_jitter": {
+      "path": "common_pipeline/01_contract/outputs/bootstrap_jitter_seed42_normalized.parquet",
+      "sha256": "846a6e2306922704e8dec39445bed0f2a9b146fd57dd793efe0f647a499395fe",
+      "training_seed": 42,
+      "space": "global_channel_normalized",
+      "channel_order": [
+        "log_return",
+        "log_high_low_range",
+        "log1p_volume"
+      ],
+      "metadata_evidence": "certified_registry + canonical parquet metadata",
+      "method_family": "simple_baseline"
+    },
+    "cristian": {
+      "path": "generadores/cristian/outputs/synthetic_seed42_n5000_normalized.parquet",
+      "sha256": "135503132f19f8d856e89b595cbc283baafc29864e2fb042d99bc12bfe892123",
+      "training_seed": 42,
+      "space": "global_channel_normalized",
+      "channel_order": [
+        "log_return",
+        "log_high_low_range",
+        "log1p_volume"
+      ],
+      "metadata_evidence": "certified_registry + canonical parquet metadata",
+      "method_family": "neural_generator"
+    },
+    "daniel": {
+      "path": "generadores/daniel/outputs/diffusion_seed42_normalized.parquet",
+      "sha256": "bb9b5ad6b412fd785f73344cd765c56447b92de2b5827e40b3dc77d06e40a6c2",
+      "training_seed": 42,
+      "space": "global_channel_normalized",
+      "channel_order": [
+        "log_return",
+        "log_high_low_range",
+        "log1p_volume"
+      ],
+      "metadata_evidence": "certified_registry + canonical parquet metadata",
+      "method_family": "neural_generator"
+    },
+    "marco": {
+      "path": "generadores/marco/outputs/donor_synthetic_normalized_seed42.parquet",
+      "sha256": "36f6830ffa7fae08c841fe30801b7f4caa6c4f54ea618afe39a8e9f60afd1591",
+      "training_seed": 42,
+      "space": "global_channel_normalized",
+      "channel_order": [
+        "log_return",
+        "log_high_low_range",
+        "log1p_volume"
+      ],
+      "metadata_evidence": "certified_registry + canonical parquet metadata",
+      "method_family": "neural_generator"
+    }
+  },
+  "certified_registry": "common_pipeline/01_contract/results/certified_outputs.json",
+  "certified_registry_sha256": "d89b72185bc4ad9d8ef1c10835d12a911b5d92948d89b6ac90e21389702051a8",
+  "baseline_included": true,
+  "allow_partial": true,
+  "physical_sign_validation_applied": false,
+  "synthetic_repair_applied": false,
+  "tables": [
+    "abs_return_acf.csv",
+    "c2st_results.csv",
+    "channel_correlations.csv",
+    "correlation_errors.csv",
+    "joint_tsne_coordinates.csv",
+    "marginal_statistics.csv",
+    "nearest_neighbor.csv",
+    "return_acf.csv",
+    "wasserstein.csv"
+  ]
+}
