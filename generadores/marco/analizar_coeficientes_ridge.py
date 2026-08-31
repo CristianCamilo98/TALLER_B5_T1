@@ -1,9 +1,9 @@
-﻿import numpy as np
+import numpy as np
 import pandas as pd
 from sklearn.linear_model import Ridge
 from sklearn.preprocessing import StandardScaler
 
-from downstream_features import build_supervised_pairs
+from generadores.marco.downstream_features import build_supervised_pairs
 
 FEATURE_NAMES = ["rv_5", "rv_20", "rv_60", "mean_abs_return_20", "momentum_20", "mean_range_20", "mean_volume_20", "std_volume_20"]
 
