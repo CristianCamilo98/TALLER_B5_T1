@@ -1,0 +1,5 @@
+method,real_count,synthetic_count,features,cv,prediction_scope,roc_auc,accuracy
+bootstrap_jitter,380,380,195,"StratifiedKFold(n_splits=5,shuffle=True,random_state=42)",out_of_fold,0.896966759003,0.834210526316
+cristian,380,380,195,"StratifiedKFold(n_splits=5,shuffle=True,random_state=42)",out_of_fold,0.926662049861,0.864473684211
+daniel,380,380,195,"StratifiedKFold(n_splits=5,shuffle=True,random_state=42)",out_of_fold,0.907015235457,0.819736842105
+marco,380,380,195,"StratifiedKFold(n_splits=5,shuffle=True,random_state=42)",out_of_fold,0.99932132964,0.968421052632
