@@ -14,6 +14,8 @@ CHANNELS = ["log_return", "log_high_low_range", "log1p_volume"]
 WINDOW_LENGTH = 65
 N_CHANNELS = len(CHANNELS)
 FEATURE_DIM = WINDOW_LENGTH * N_CHANNELS
+GLOBAL_NORMALIZED_SPACE = "global_channel_normalized"
+SOURCE_MODEL = "wgan_gp"
 
 
 @dataclass(frozen=True)
@@ -125,13 +127,47 @@ def make_tf_dataset(
     return dataset.batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
 
 
-def synthetic_windows_to_frame(
+def synthetic_seed_column(frame: pd.DataFrame) -> str:
+    if "training_seed" in frame.columns:
+        return "training_seed"
+    if "seed" in frame.columns:
+        return "seed"
+    raise ValueError("El parquet sintético no tiene training_seed ni seed")
+
+
+def synthetic_windows_to_contract_frame(
+    windows: np.ndarray,
+    *,
+    training_seed: int,
+    source_model: str = SOURCE_MODEL,
+) -> pd.DataFrame:
+    """Schema común (01_contract): mismas 8 columnas que generadores/daniel."""
+    records: list[dict] = []
+    for synthetic_id, window in enumerate(windows):
+        flat = np.asarray(window, dtype=np.float32).reshape(-1)
+        records.append(
+            {
+                "synthetic_id": synthetic_id,
+                "source_model": source_model,
+                "training_seed": training_seed,
+                "space": GLOBAL_NORMALIZED_SPACE,
+                "window_length": WINDOW_LENGTH,
+                "n_channels": N_CHANNELS,
+                "channel_order": list(CHANNELS),
+                "features_flat": flat.tolist(),
+            }
+        )
+    return pd.DataFrame.from_records(records)
+
+
+def synthetic_windows_to_local_frame(
     windows: np.ndarray,
     *,
     seed: int,
-    ratio: float | None = None,
     checkpoint: str,
+    ratio: float | None = None,
 ) -> pd.DataFrame:
+    """Export local desnormalizado (evaluación vs donors en escala original)."""
     records: list[dict] = []
     for idx, window in enumerate(windows):
         records.append(
@@ -140,7 +176,7 @@ def synthetic_windows_to_frame(
                 "seed": seed,
                 "ratio": ratio,
                 "split": "synthetic",
-                "source_model": "wgan_gp",
+                "source_model": SOURCE_MODEL,
                 "checkpoint": checkpoint,
                 "features_flat": window.reshape(-1).tolist(),
             }
