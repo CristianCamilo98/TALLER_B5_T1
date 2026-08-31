@@ -1,0 +1,35 @@
+{
+  "source_model": "temporal_jitter_0p40_rho0p85",
+  "family": "bootstrap_temporal",
+  "algorithm": "temporal_jitter_0p40_rho0p85",
+  "selected_from_experiment": "generadores/david/scripts/generate_normalized.py",
+  "seed": 42,
+  "training_seed": 42,
+  "noise_scale": 0.4,
+  "rho": 0.85,
+  "space": "global_channel_normalized",
+  "channel_order": [
+    "log_return",
+    "log_high_low_range",
+    "log1p_volume"
+  ],
+  "mean": [
+    0.0008114289710088066,
+    0.02602580514891484,
+    16.06027218135258
+  ],
+  "std": [
+    0.023515504591060377,
+    0.01672428879172832,
+    1.0933253360280637
+  ],
+  "donor_train_path": "data/features/windows/donor_train.parquet",
+  "donor_train_sha256": "ad4614a93cf05671ec3808fc96c7803d6f40916bde0c8593a981b695bee0b0bd",
+  "n_windows": 5000,
+  "logical_shape": [
+    5000,
+    65,
+    3
+  ],
+  "parquet_sha256": "0cf9be5d106783b62248b7b56f942ea121ef113640216eb8ba3b2889ba2230bf"
+}
