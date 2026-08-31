@@ -3,7 +3,7 @@ import tensorflow as tf
 from generadores.marco.architecture import TimeVAE
 
 LATENT_DIM = 8
-N_SAMPLES = 25000   # volumen alto a propósito: el equipo decidirá luego cuántas
+N_SAMPLES = 5000   # volumen alto a propósito: el equipo decidirá luego cuántas
                      # usar en cada ratio de mezcla (25/50/75%); mejor generar de más
                      # ahora que quedarse cortos y tener que repetir el paso
 

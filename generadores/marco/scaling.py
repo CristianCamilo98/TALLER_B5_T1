@@ -1,30 +1,26 @@
-import numpy as np
+﻿import numpy as np
 
-def fit_scaler(data):
+
+def fit_scaler(train_values: np.ndarray) -> dict:
     """
-    Calcula la media y desviación estándar para cada canal.
-    data shape esperado: (N_ventanas, 65_dias, 3_canales)
+    Ajusta media/desviacion por canal, en float64 estricto (ddof=0),
+    axes=(0,1), tal y como exige el contrato comun del equipo.
+    Fuerza el calculo en float64 aunque el array de entrada ya lo sea --
+    proteccion extra para que nunca vuelva a colarse una perdida de
+    precision silenciosa si algun futuro caller pasa datos en float32.
     """
-    # Calculamos la estadística colapsando las ventanas y los días (ejes 0 y 1),
-    # dejando un array de tamaño (3,) correspondiente a cada canal.
-    mean = np.mean(data, axis=(0, 1))
-    std = np.std(data, axis=(0, 1))
-    
-    # Prevenir divisiones por cero en canales sin varianza
-    std[std == 0] = 1e-8
-    
+    data64 = train_values.astype(np.float64)
+    mean = data64.mean(axis=(0, 1), dtype=np.float64)
+    std = data64.std(axis=(0, 1), ddof=0, dtype=np.float64)
+    std = np.where(std == 0, 1e-8, std)
     return {"mean": mean, "std": std}
 
-def apply_scaler(data, scaler):
-    """
-    Aplica Z-score standardization: (X - mu) / sigma
-    El broadcasting de NumPy alinea automáticamente el array (3,) con el último eje de data.
-    """
-    return (data - scaler["mean"]) / scaler["std"]
 
-def inverse_scaler(data_scaled, scaler):
-    """
-    Revierte la escala: X = (Z * sigma) + mu
-    Vital para la fase de calibración y generación de muestras sintéticas.
-    """
+def apply_scaler(data: np.ndarray, scaler: dict) -> np.ndarray:
+    """(X - mean) / std. La conversion a float32 se hace DESPUES de esto,
+    en el punto donde se construyen los tensores del modelo -- no aqui."""
+    return (data.astype(np.float64) - scaler["mean"]) / scaler["std"]
+
+
+def inverse_scaler(data_scaled: np.ndarray, scaler: dict) -> np.ndarray:
     return (data_scaled * scaler["std"]) + scaler["mean"]

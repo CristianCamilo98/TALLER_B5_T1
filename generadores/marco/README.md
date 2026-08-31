@@ -28,27 +28,38 @@ NVDA nunca entra en `donor_train`/`donor_validation`.
 ## Entrenamiento
 
 Huber loss + KL con free-bits (0.25 nats/dim), warmup de KL en 15 épocas,
-Adam lr=1e-3, early stopping (paciencia 10). Mejor época: 10, `val_recon=0.312`.
+Adam lr=1e-3, early stopping (paciencia 10). Mejor época: 10, `val_recon=0.307`.
 
 ![Loss](figures/loss_vae_donors.png)
 
+*(Figura correspondiente al reentrenamiento con el scaler corregido — ver
+Limitaciones. Si se regenera, usar `python -m generadores.marco.graficar_loss_vae`
+con el `loss_history.npz` más reciente.)*
+
 ## Generación y calibración
 
-Se genera muestreando `z~N(0,1)` directamente (sin encoder) y decodificando.
-El resultado se recalibra (media/std) a los valores reales de `nvda_visible`,
-para que "patrón de donors + escala de NVDA".
+Se genera muestreando `z~N(0,1)` directamente (sin encoder) y decodificando —
+5000 ventanas sintéticas por defecto. El resultado se recalibra (media/std) a
+los valores reales de `nvda_visible` (126 días únicos reconstruidos, no las
+62 ventanas solapadas — ver Limitaciones), para que "patrón de donors + escala
+de NVDA".
+
+Sintético exportado en `outputs/nvda_synthetic_windows.parquet` (calibrado a
+NVDA) y `outputs/donor_synthetic_normalized_seed42.parquet` (normalizado, sin
+calibrar — esquema común de 8 columnas, ver más abajo).
 
 ## Experimento: ¿ayuda el sintético con pocos datos reales?
 
 Mismo Ridge entrenado 5 veces (solo real, +25/50/75% sintético, Oracle),
-evaluado siempre contra `nvda_test` real. Media de 3 seeds:
+evaluado siempre contra `nvda_test` real. Media de 3 seeds de subsampling
+(42, 123, 2026):
 
 | Mezcla | RMSE |
 |---|---:|
 | 100% real (62 ventanas) | 1.4796 |
-| +25% sintético | 0.2748 |
-| +50% sintético | 0.2519 |
-| +75% sintético | 0.2396 |
+| +25% sintético | 0.2656 |
+| +50% sintético | 0.2574 |
+| +75% sintético | 0.2555 |
 | Oracle (2703 reales) | 0.2248 |
 
 ![RMSE vs sintético](figures/rmse_vs_sintetico.png)
@@ -57,47 +68,58 @@ Con solo 62 ventanas reales el modelo generaliza muy mal (RMSE 1.48). Añadir
 sintético lo corrige de forma drástica y monótona, acercándose al Oracle
 según sube el ratio. Confirmado también a nivel de coeficientes: la
 similitud coseno de los pesos del Ridge frente al Oracle pasa de **0.26**
-(solo real) a **0.64** (50% sintético) — el sintético no solo baja el error,
+(solo real) a **0.51** (50% sintético) — el sintético no solo baja el error,
 empuja a aprender la relación correcta.
 
 ## Métricas de calidad
 
-- **Distribuciones marginales**: solapan razonablemente en las 3 variables.
-- **t-SNE**: solapamiento parcial, no total como en el paper original —
-  aparecen dos regiones sintéticas sin contrapartida real, probablemente
-  porque los donors cubren 10 años de regímenes de mercado y NVDA visible
-  es un único semestre.
-- **Discriminative score**: 0.158 (rango 0-0.15 del paper para un generador
-  que funciona razonablemente). La matriz de confusión muestra que el
-  clasificador confunde sobre todo lo *real* con sintético, no al revés —
-  coherente con el solapamiento parcial del t-SNE.
+Tres comparaciones, en dos espacios distintos — separando "¿aprendió bien el
+VAE la distribución de entrenamiento?" (contra donors, sin calibrar) de
+"¿sirve para el problema real?" (contra NVDA, calibrado):
 
-![Clasificador](figures/clasificador_calidad.png)
+### 1) Sintético calibrado vs. NVDA real (`nvda_visible`)
 
+![Distribuciones NVDA](figures/dist_real_vs_sintetico.png)
+![t-SNE NVDA](figures/tsne_calidad.png)
+![Clasificador NVDA](figures/clasificador_calidad.png)
 
-## Sintético vs. donors (antes de calibrar) — validación de la generación pura
+Marginales solapan razonablemente en las 3 variables. t-SNE con solapamiento
+parcial (no total, a diferencia del paper original) — dos regiones sintéticas
+sin contrapartida real, probablemente porque los donors cubren 10 años de
+regímenes de mercado y NVDA visible es un único semestre.
 
-Comparación adicional, en el espacio normalizado (z-score sobre `donor_train`,
-sin calibrar a NVDA) — aísla "¿aprendió bien el VAE la distribución de
-entrenamiento?" de "¿tiene sentido la calibración a NVDA?".
+### 2) Sintético (sin calibrar) vs. `donor_validation`
+
+![Distribuciones donor_validation](figures/dist_donor_vs_sintetico.png)
+![t-SNE donor_validation](figures/tsne_donor_vs_sintetico.png)
+![Clasificador donor_validation](figures/clasificador_donor_vs_sintetico.png)
+
+### 3) Sintético (sin calibrar) vs. `donor_train`
+
+![Distribuciones donor_train](figures/dist_donor_train_vs_sintetico.png)
+![t-SNE donor_train](figures/tsne_donor_train_vs_sintetico.png)
+![Clasificador donor_train](figures/clasificador_donor_train_vs_sintetico.png)
+
+### Comparación de discriminative score entre las tres referencias
 
 | Referencia | Discriminative score |
 |---|---:|
-| `donor_train` | 0.013 (casi indistinguible) |
-| `donor_validation` | 0.268 |
+| `donor_train` | 0.044 |
+| `donor_validation` | 0.254 |
+| `nvda_visible` (calibrado) | 0.079 |
 
-La brecha no es un fallo del generador: `donor_validation` es 2022 completo,
-ya identificado como año atípico (2º más volátil de la década, ligado a las
-subidas de tipos de la Fed) — el sintético se parece mucho a lo que
-entrenó (`donor_train`), y algo menos a un año que ya se desvía de esa
-distribución por sí mismo.
+El sintético se parece mucho a lo que entrenó (`donor_train`) y algo menos a
+`donor_validation` — coherente con que 2022 (validation) ya es en sí mismo un
+año atípico (2º más volátil de la década, ligado a las subidas de tipos de la
+Fed), no un fallo del generador. La matriz de confusión contra NVDA muestra
+que el clasificador confunde sobre todo lo *real* con sintético, no al revés.
 
 ### Autocorrelación temporal
 
 ![Autocorrelación](figures/heatmap_autocorrelacion.png)
 
-`log_return` retiene solo el 0.5% de su varianza al generar (`log_high_low_range`:
-17.3%; `log1p_volume`: 49.2%). Causa: el decoder produce las 65 ventanas a
+`log_return` retiene solo ~0.9% de su varianza al generar (`log_high_low_range`:
+~26%; `log1p_volume`: ~45%). Causa: el decoder produce las 65 ventanas a
 partir de un único vector latente compartido, mediante convoluciones que
 generan salidas suaves y correlacionadas en el tiempo. Esto reproduce (e
 incluso **exagera**) canales con memoria real día a día (`log_high_low_range`,
@@ -111,6 +133,10 @@ repliega hacia la media y colapsa la varianza.
 
 `outputs/donor_synthetic_normalized_seed42.parquet` — 5000 ventanas sintéticas,
 espacio normalizado (z-score `donor_train`, **sin calibrar a NVDA**), seed=42.
+Esquema común de 8 columnas (`synthetic_id`, `source_model`, `training_seed`,
+`space`, `window_length`, `n_channels`, `channel_order`, `features_flat`),
+validado por `common_pipeline/01_contract/validate_outputs.py` — `contract_status=PASS`.
+
 Protocolo de comparación en dos niveles, para separar "¿funciona la
 arquitectura?" de "¿sirve para el problema real?":
 
@@ -118,12 +144,13 @@ arquitectura?" de "¿sirve para el problema real?":
    contra `donor_train`/`donor_validation` (marginales, t-SNE, discriminative
    score) — mismo protocolo que arriba.
 2. **Tarea final**: cada generador calibrado a NVDA, mismo experimento de
-   mezclas contra `nvda_test` real.
+   mezclas contra `nvda_test` real — resultados agregados de los 3 generadores
+   disponibles al momento en `common_pipeline/03_utility/README.md`.
 
 ## Limitaciones
 
 - **Colapso de varianza no uniforme por canal**: `log_return` retiene solo
-  ~6% de la varianza de entrenamiento al generar (vs 43-57% en las otras
+  ~1% de la varianza de entrenamiento al generar (vs 26-45% en las otras
   2 variables) — justo la variable más importante para el downstream.
   Limitación conocida de los VAE al generar desde el prior, no del
   entrenamiento en sí (con `z` real, la reconstrucción es buena).
@@ -137,6 +164,18 @@ arquitectura?" de "¿sirve para el problema real?":
 - Un bug en la base de datos común (`nvda_visible` incluía ventanas cuyo
   contexto se apoyaba en historia oculta) fue detectado, reportado, y
   corregido por el equipo antes del experimento final.
+- **Precisión del scaler**: se detectó (auditoría del equipo) que `donor_train`
+  se convertía a `float32` antes de calcular media/desviación, en vez de
+  después — error relativo de ~3-6e-5 en las estadísticas del scaler. Aunque
+  4-5 órdenes de magnitud menor que el colapso de varianza ya documentado,
+  se corrigió (`float64` estricto en el ajuste) y se reentrenó el modelo por
+  exactitud y comparabilidad con el resto de generadores del equipo.
+- **Bug de reproducibilidad en el experimento de mezclas**: una primera
+  versión reutilizaba el mismo generador aleatorio (`rng`) entre ratios
+  dentro de la misma seed, haciendo que el muestreo de `mix_50`/`mix_75`
+  dependiera silenciosamente de haber ejecutado antes `mix_25`. Corregido
+  (rng nuevo por cada combinación ratio×seed) tras detectar una discrepancia
+  entre dos scripts que debían dar el mismo resultado y no coincidían.
 
 ## Trabajo futuro
 
@@ -151,8 +190,10 @@ arquitectura?" de "¿sirve para el problema real?":
 python -m generadores.marco.cargar_datos_compartidos
 python -m generadores.marco.entrenar_vae
 python -m generadores.marco.generar_sintetico
+python -m generadores.marco.reexportar_schema_comun
 python -m generadores.marco.experimento_mezclas
 ```
 
-Seeds: 42, 123, 2026 (experimento de mezclas). `scaler_donors.npz` y los
-`.npz` de caché son regenerables, no están versionados (ver `.gitignore`).
+Seeds: 42, 123, 2026 (experimento de mezclas, un `rng` nuevo por cada
+combinación ratio×seed). `scaler_donors.npz` y los `.npz` de caché son
+regenerables, no están versionados (ver `.gitignore`).

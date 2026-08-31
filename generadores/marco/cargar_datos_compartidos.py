@@ -6,7 +6,7 @@ WINDOWS_DIR = "data/features/windows"
 
 def load_window_file(path):
     df = pd.read_parquet(path)
-    values = np.stack([np.asarray(row, dtype="float32").reshape(65, 3) for row in df["features_flat"]])
+    values = np.stack([np.asarray(row, dtype="float64").reshape(65, 3) for row in df["features_flat"]])
     return values, df
 
 
@@ -34,7 +34,7 @@ print("  rango real:", df_oracle["window_start_date"].min(), "->", df_oracle["wi
 
 print("Cargando nvda_test (desde test_index.parquet, ya trae contexto+target explícitos)...")
 test_index = pd.read_parquet("data/features/test_index.parquet")
-nvda_test = np.stack([np.asarray(row, dtype="float32").reshape(65, 3) for row in test_index["features_flat"]])
+nvda_test = np.stack([np.asarray(row, dtype="float64").reshape(65, 3) for row in test_index["features_flat"]])
 np.savez_compressed("cache_nvda_test.npz", values=nvda_test)
 print("  shape:", nvda_test.shape)
 print("  rango de targets:", test_index["target_start_date"].min(), "->", test_index["target_end_date"].max())

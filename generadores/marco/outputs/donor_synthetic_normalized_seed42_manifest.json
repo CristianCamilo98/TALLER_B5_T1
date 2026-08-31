@@ -8,16 +8,23 @@
     "log_high_low_range",
     "log1p_volume"
   ],
-  "space": "z-score sobre donor_train (ddof=0), SIN calibrar a NVDA",
-  "scaler_mean": [
-    0.0008114035590551794,
-    0.02602413110435009,
-    16.06092643737793
+  "space": "global_channel_normalized",
+  "mean": [
+    0.0008114289650906917,
+    0.02602580514891484,
+    16.06027218135258
   ],
-  "scaler_std": [
-    0.023512789979577065,
-    0.016723208129405975,
-    1.0932406187057495
+  "std": [
+    0.02351550543534708,
+    0.01672428879172829,
+    1.0933253360280637
   ],
-  "purpose": "comparacion entre generadores (VAE/GAN/Diffusion) contra donor_train/donor_validation, antes de calibracion a NVDA"
+  "fit_split": "donor_train",
+  "fit_axes": [
+    0,
+    1
+  ],
+  "ddof": 0,
+  "fit_dtype": "float64",
+  "note": "Regenerado tras corregir scaling.py (float64 estricto en fit, antes convertia a float32 antes de calcular mean/std)"
 }
