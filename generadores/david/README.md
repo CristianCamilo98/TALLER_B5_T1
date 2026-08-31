@@ -81,27 +81,6 @@ Comparacion principal frente al baseline inicial `noise_scale=0.05`:
 | ventanas invalidas post-calibracion | 0/5000 | 0/5000 |
 | mejor RMSE downstream | 0.2627 | 0.2401 |
 
-## Graficos diagnosticos
-
-Las figuras explicativas estan en `experiments/figures/`:
-
-| Figura | Uso |
-|---|---|
-| `candidate_pareto_c2st_rmse.png` | Ver el tradeoff fidelity/utility y por que se elige 0.40 frente a 0.50. |
-| `temporal_noise_sweep.png` | Ver como cambia C2ST, Wasserstein, RMSE y ACF al aumentar `noise_scale`. |
-| `candidate_utility_curves.png` | Comparar RMSE por ratio sintetico entre variantes. |
-| `marginal_distributions_baseline_vs_selected.png` | Comparar distribuciones marginales real/baseline/David mejorado. |
-| `temporal_distribution_bands.png` | Comparar bandas temporales p10-p90 por canal. |
-| `acf_return_curves.png` | Mostrar el coste principal: peor ACF de retornos. |
-| `acf_abs_return_curves.png` | Comparar memoria de volatilidad aproximada. |
-| `physical_margin_temporal_sweep.png` | Ver el margen fisico antes de que aparezcan ventanas invalidas. |
-
-Tablas auxiliares:
-
-- `experiments/results/david_candidate_comparison.csv`
-- `experiments/results/david_decision_shortlist.csv`
-- `experiments/results/david_temporal_physical_margins.csv`
-
 El generador no usa `nvda_visible` ni `nvda_test` para construir ventanas. La
 calibracion a NVDA-like, el rechazo de ventanas fisicamente invalidas y la
 evaluacion downstream sobre `nvda_test` pertenecen al pipeline comun
