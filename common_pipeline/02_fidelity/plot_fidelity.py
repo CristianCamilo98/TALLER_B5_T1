@@ -45,7 +45,7 @@ def load_plot_inputs(
     manifest = json.loads(
         (results_dir / "evaluation_manifest.json").read_text(encoding="utf-8")
     )
-    _, real, statistics = load_real_reference(
+    _, real, _statistics = load_real_reference(
         repository_root / manifest["nearest_neighbor_reference"],
         repository_root / manifest["real_reference"],
     )
@@ -56,7 +56,6 @@ def load_plot_inputs(
         method: load_synthetic_pool(
             repository_root / metadata["path"],
             method=method,
-            expected_normalizer=statistics,
         ).windows
         for method, metadata in manifest["synthetic_methods"].items()
     }

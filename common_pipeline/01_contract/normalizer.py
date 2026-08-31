@@ -88,30 +88,36 @@ def normalizer_file_hash(path: Path) -> str:
 
 
 def _json_stats(payload: dict) -> tuple[list[float] | None, list[float] | None]:
-    mean = payload.get("mean") or payload.get("scaler_mean")
-    std = payload.get("std") or payload.get("scaler_std")
+    normalization = payload.get("normalization", {})
+    mean = payload.get("mean") or payload.get("scaler_mean") or normalization.get("mean")
+    std = payload.get("std") or payload.get("scaler_std") or normalization.get("std")
     if mean is None or std is None:
         return None, None
     return list(mean), list(std)
 
 
-def _search_generator_provenance(generator_id: str) -> list[Path]:
-    root = REPO_ROOT / "generadores" / generator_id
-    patterns = ("*normalizer*.json", "*manifest*.json", "scaler*.json", "scaler*.npz")
-    files: list[Path] = []
-    for pattern in patterns:
-        files.extend(root.rglob(pattern))
-    return sorted({path for path in files if path.is_file()})
+def _output_provenance_files(output_path: Path | None) -> list[Path]:
+    if output_path is None:
+        return []
+    candidates = (
+        output_path.with_suffix(".provenance.json"),
+        output_path.with_name(f"{output_path.stem}_manifest.json"),
+        output_path.with_suffix(".json"),
+    )
+    return [path for path in candidates if path.is_file()]
 
 
-def assess_normalization_provenance(generator_id: str) -> str:
+def assess_normalization_provenance(
+    generator_id: str,
+    output_path: Path | None = None,
+) -> str:
     """Return VERIFIED, NORMALIZATION_MISMATCH, or PROVENANCE_NOT_VERIFIABLE."""
 
     verified_hash = False
     stats_match = False
     stats_mismatch = False
 
-    for path in _search_generator_provenance(generator_id):
+    for path in _output_provenance_files(output_path):
         if normalizer_file_hash(path) == CANONICAL_NORMALIZER_SHA256:
             verified_hash = True
             break
@@ -143,9 +149,9 @@ def assess_normalization_provenance(generator_id: str) -> str:
                 continue
 
     if verified_hash:
-        return "VERIFIED"
+        return "NORMALIZATION_PROVENANCE_VERIFIED"
     if stats_mismatch:
         return "NORMALIZATION_MISMATCH"
     if stats_match:
-        return "PROVENANCE_NOT_VERIFIABLE"
-    return "PROVENANCE_NOT_VERIFIABLE"
+        return "NORMALIZATION_NUMERICALLY_MATCHES"
+    return "NORMALIZATION_PROVENANCE_NOT_VERIFIABLE"

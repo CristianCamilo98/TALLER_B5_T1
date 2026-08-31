@@ -1,16 +1,28 @@
-﻿import pandas as pd
+"""Read-only inspection of the phase-01 certified registry."""
 
-paths = {
-    "cristian_raw": "generadores/cristian/outputs/synthetic_seed42_n5000.parquet",
-    "cristian_norm": "generadores/cristian/outputs/synthetic_seed42_n5000_normalized.parquet",
-    "daniel_norm": "generadores/daniel/outputs/diffusion_seed42_normalized.parquet",
-    "marco_norm": "generadores/marco/outputs/donor_synthetic_normalized_seed42.parquet",
-}
+from __future__ import annotations
 
-for name, path in paths.items():
-    df = pd.read_parquet(path)
-    print(f"=== {name} ===")
-    print("columnas:", df.columns.tolist())
-    print("filas:", len(df))
-    print(df.head(1))
-    print()
+import argparse
+import importlib
+from pathlib import Path
+
+registry = importlib.import_module("common_pipeline.01_contract.registry")
+DEFAULT_PATH = Path(__file__).resolve().parents[1] / "01_contract/results/certified_outputs.json"
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--registry-path", type=Path, default=DEFAULT_PATH)
+    parser.add_argument("--allow-partial", action="store_true")
+    args = parser.parse_args()
+    payload = registry.load_certified_registry(args.registry_path)
+    registry.ensure_registry_completeness(payload, allow_partial=args.allow_partial)
+    for method in payload["methods"]:
+        print(
+            f"{method['method_id']}: {method['path']} "
+            f"{tuple(method['logical_shape'])} {method['method_family']}"
+        )
+
+
+if __name__ == "__main__":
+    main()

@@ -11,9 +11,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence
 
-import json
-import re
-
 import numpy as np
 import pandas as pd
 from scipy.stats import kurtosis, skew, wasserstein_distance
@@ -201,93 +198,54 @@ def _unique_scalar(frame: pd.DataFrame, column: str) -> object | None:
     return first
 
 
-def _sidecar_metadata(path: Path) -> dict:
-    candidates = (
-        path.with_name(f"{path.stem}_manifest.json"),
-        path.with_suffix(".json"),
-    )
-    for candidate in candidates:
-        if candidate.is_file():
-            return json.loads(candidate.read_text(encoding="utf-8"))
-    return {}
-
-
 def load_synthetic_pool(
     path: Path | str,
     *,
     method: str,
     expected_count: int = SYNTHETIC_POOL_COUNT,
-    expected_normalizer: GlobalChannelStatistics | None = None,
 ) -> SyntheticPool:
-    """Load one published normalized pool while tolerating current schemas."""
+    """Load one canonical pool already certified by phase 01.
+
+    This defensive loader deliberately refuses to infer metadata from a
+    filename, owner, or sidecar. Contract authority remains in phase 01.
+    """
 
     source = Path(path)
     frame = pd.read_parquet(source)
-    if "features_flat" not in frame.columns:
-        raise ValueError(f"{source} lacks features_flat")
+    required = {
+        "synthetic_id",
+        "source_model",
+        "training_seed",
+        "space",
+        "window_length",
+        "n_channels",
+        "channel_order",
+        "features_flat",
+    }
+    missing = required - set(frame.columns)
+    if missing:
+        raise ValueError(f"{source} lacks certified metadata: {sorted(missing)}")
     windows = reconstruct_windows(
         frame["features_flat"], name=source.name, expected_count=expected_count
     )
-    sidecar = _sidecar_metadata(source)
 
     seed_value = _unique_scalar(frame, "training_seed")
-    if seed_value is None:
-        seed_value = _unique_scalar(frame, "seed")
-    if seed_value is None:
-        seed_value = sidecar.get("training_seed", sidecar.get("seed"))
-    if seed_value is None:
-        match = re.search(r"seed[_-]?(\d+)", source.stem, flags=re.IGNORECASE)
-        seed_value = int(match.group(1)) if match else None
     if int(seed_value) != 42:
         raise ValueError(f"{source} must be the published training-seed-42 pool")
 
     explicit_space = _unique_scalar(frame, "space")
-    sidecar_space = sidecar.get("space")
-    if explicit_space is not None:
-        if explicit_space != "global_channel_normalized":
-            raise ValueError(f"{source} is not in global_channel_normalized space")
-        space = str(explicit_space)
-        evidence = "parquet:space"
-    elif sidecar_space is not None:
-        normalized_text = str(sidecar_space).lower()
-        if "z-score" not in normalized_text and "global_channel_normalized" not in normalized_text:
-            raise ValueError(f"{source} sidecar does not certify normalized space")
-        space = "global_channel_normalized"
-        evidence = "sidecar:space"
-    elif "normalized" in source.stem.lower():
-        space = "global_channel_normalized"
-        evidence = "published normalized filename plus canonical 195-value contract"
-    else:
-        raise ValueError(f"Cannot certify normalized space for {source}")
+    if explicit_space != "global_channel_normalized":
+        raise ValueError(f"{source} is not in global_channel_normalized space")
+    space = str(explicit_space)
 
     explicit_channels = _unique_scalar(frame, "channel_order")
-    sidecar_channels = sidecar.get("channels", sidecar.get("channel_order"))
-    channel_order = tuple(explicit_channels or sidecar_channels or CHANNEL_ORDER)
+    channel_order = tuple(explicit_channels)
     if channel_order != CHANNEL_ORDER:
         raise ValueError(f"{source} uses incompatible channel order {channel_order}")
-
-    sidecar_mean = sidecar.get("scaler_mean")
-    sidecar_std = sidecar.get("scaler_std")
-    if (sidecar_mean is None) != (sidecar_std is None):
-        raise ValueError(f"{source} sidecar contains an incomplete scaler contract")
-    if sidecar_mean is not None and expected_normalizer is not None:
-        published_mean = np.asarray(sidecar_mean, dtype=np.float64)
-        published_std = np.asarray(sidecar_std, dtype=np.float64)
-        if published_mean.shape != (N_CHANNELS,) or published_std.shape != (N_CHANNELS,):
-            raise ValueError(f"{source} sidecar scaler must contain three channels")
-        if not np.allclose(
-            published_mean, expected_normalizer.mean, rtol=1e-10, atol=1e-12
-        ) or not np.allclose(
-            published_std, expected_normalizer.std, rtol=1e-10, atol=1e-12
-        ):
-            mean_delta = float(np.max(np.abs(published_mean - expected_normalizer.mean)))
-            std_delta = float(np.max(np.abs(published_std - expected_normalizer.std)))
-            raise ValueError(
-                f"{source} sidecar scaler is not the common float64 donor-train "
-                f"contract (max mean delta={mean_delta:.12g}, "
-                f"max std delta={std_delta:.12g})"
-            )
-        evidence = f"{evidence}; sidecar scaler matches common float64 contract"
+    if int(_unique_scalar(frame, "window_length")) != WINDOW_LENGTH:
+        raise ValueError(f"{source} uses incompatible window_length")
+    if int(_unique_scalar(frame, "n_channels")) != N_CHANNELS:
+        raise ValueError(f"{source} uses incompatible n_channels")
 
     return SyntheticPool(
         method=method,
@@ -296,25 +254,8 @@ def load_synthetic_pool(
         training_seed=42,
         space=space,
         channel_order=channel_order,
-        metadata_evidence=evidence,
+        metadata_evidence="certified_registry + canonical parquet metadata",
     )
-
-
-def discover_neural_outputs(repository_root: Path | str) -> dict[str, Path]:
-    """Discover one published normalized Parquet per generator owner."""
-
-    root = Path(repository_root)
-    discovered: dict[str, Path] = {}
-    for output_dir in sorted((root / "generadores").glob("*/outputs")):
-        candidates = sorted(output_dir.glob("*normalized*.parquet"))
-        if not candidates:
-            continue
-        if len(candidates) != 1:
-            raise ValueError(
-                f"Expected one normalized Parquet in {output_dir}, found {len(candidates)}"
-            )
-        discovered[output_dir.parent.name] = candidates[0]
-    return discovered
 
 
 def common_subset_indices(

@@ -1,10 +1,5 @@
-﻿"""
-Descubre y carga los pools sinteticos normalizados de cada generador.
-Unico denominador comun real entre los 4 esquemas de columnas distintos:
-la columna `features_flat` (195 floats, row-major t=0..64 x canal).
-Identificamos el metodo por la carpeta (generadores/<nombre>/), no por
-columnas de metadata inconsistentes entre generadores.
-"""
+"""Load only phase-01-certified normalized synthetic pools."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,45 +7,67 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from . import utility_run
+
 WINDOW_LENGTH = 65
 N_CHANNELS = 3
 CHANNEL_ORDER = ("log_return", "log_high_low_range", "log1p_volume")
 
-# Fichero normalizado oficial de seed=42 por generador -- fijado explicito,
-# no adivinado por heuristica de nombre (Cristian tiene raw Y normalized en
-# la misma carpeta; un match de texto ambiguo podria coger el equivocado).
-KNOWN_NORMALIZED_FILES = {
-    "cristian": "generadores/cristian/outputs/synthetic_seed42_n5000_normalized.parquet",
-    "daniel": "generadores/daniel/outputs/diffusion_seed42_normalized.parquet",
-    "marco": "generadores/marco/outputs/donor_synthetic_normalized_seed42.parquet",
-}
+
+def _load_registered_pool(path: Path, entry: dict) -> np.ndarray:
+    frame = pd.read_parquet(path, columns=["features_flat"])
+    if len(frame) != int(entry["rows"]):
+        raise ValueError(f"{entry['method_id']}: row count changed after certification")
+    lengths = frame["features_flat"].map(len)
+    if not lengths.eq(int(entry["features_flat_length"])).all():
+        raise ValueError(f"{entry['method_id']}: features_flat length changed")
+    values = np.stack(
+        [
+            np.asarray(row, dtype=np.float32).reshape(WINDOW_LENGTH, N_CHANNELS)
+            for row in frame["features_flat"]
+        ]
+    )
+    expected_shape = tuple(entry["logical_shape"])
+    if values.shape != expected_shape:
+        raise ValueError(
+            f"{entry['method_id']}: shape {values.shape} != certified {expected_shape}"
+        )
+    if not np.isfinite(values).all():
+        raise ValueError(f"{entry['method_id']}: non-finite values after certification")
+    return values
 
 
-def discover_synthetic_pools(extra_paths: dict[str, str] | None = None) -> dict[str, np.ndarray]:
-    """extra_paths permite anadir el baseline de 01_contract via CLI/path
-    opcional cuando exista, sin tocar el diccionario fijo de arriba."""
-    paths = dict(KNOWN_NORMALIZED_FILES)
-    if extra_paths:
-        paths.update(extra_paths)
-
-    pools = {}
-    for method, path in paths.items():
-        p = Path(path)
-        if not p.exists():
-            print(f"[aviso] {method}: no encontrado en {path}, se omite")
-            continue
-        df = pd.read_parquet(p)
-        if "features_flat" not in df.columns:
-            raise ValueError(f"{method}: {path} no tiene columna 'features_flat'")
-        values = np.stack([
-            np.asarray(row, dtype="float32").reshape(WINDOW_LENGTH, N_CHANNELS)
-            for row in df["features_flat"]
-        ])
-        pools[method] = values
-        print(f"{method:10s}: {values.shape} cargado de {path}")
-    return pools
+def load_pools_for_run(
+    run_dir: Path,
+    *,
+    repository_root: Path = utility_run.REPOSITORY_ROOT,
+) -> dict[str, np.ndarray]:
+    manifest = utility_run.load_run(run_dir)
+    resolved = utility_run.resolve_manifest_methods(
+        manifest,
+        repository_root=repository_root,
+    )
+    return {
+        method: _load_registered_pool(path, entry)
+        for method, (path, entry) in sorted(resolved.items())
+    }
 
 
-if __name__ == "__main__":
-    pools = discover_synthetic_pools()
-    print(f"\nMetodos encontrados: {list(pools.keys())}")
+def discover_synthetic_pools(
+    *,
+    registry_path: Path = utility_run.DEFAULT_REGISTRY_PATH,
+    repository_root: Path = utility_run.REPOSITORY_ROOT,
+    results_root: Path = utility_run.RESULTS_ROOT,
+    run_id: str | None = None,
+    allow_partial: bool = False,
+) -> dict[str, np.ndarray]:
+    """Prepare an isolated run and load every certified method dynamically."""
+
+    run_dir, _manifest = utility_run.prepare_run(
+        registry_path=registry_path,
+        repository_root=repository_root,
+        results_root=results_root,
+        run_id=run_id,
+        allow_partial=allow_partial,
+    )
+    return load_pools_for_run(run_dir, repository_root=repository_root)

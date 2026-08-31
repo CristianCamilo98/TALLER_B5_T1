@@ -26,23 +26,24 @@ class DiscoveryResult:
     errors: tuple[str, ...]
 
 
-def _generator_dirs() -> list[Path]:
-    if not GENERATORS_ROOT.is_dir():
+def _generator_dirs(generators_root: Path | None = None) -> list[Path]:
+    root = generators_root if generators_root is not None else GENERATORS_ROOT
+    if not root.is_dir():
         return []
     return sorted(
         path
-        for path in GENERATORS_ROOT.iterdir()
+        for path in root.iterdir()
         if path.is_dir() and not path.name.startswith(".")
     )
 
 
-def discover_outputs() -> DiscoveryResult:
+def discover_outputs(generators_root: Path | None = None) -> DiscoveryResult:
     """Return exactly one parquet per generator or fail with explicit errors."""
 
     errors: list[str] = []
     discovered: list[DiscoveredOutput] = []
 
-    generator_dirs = _generator_dirs()
+    generator_dirs = _generator_dirs(generators_root)
     if len(generator_dirs) != EXPECTED_GENERATOR_COUNT:
         names = [path.name for path in generator_dirs]
         errors.append(
@@ -67,21 +68,7 @@ def discover_outputs() -> DiscoveryResult:
             )
             continue
 
-        path = parquets[0]
-        import pyarrow.parquet as pq
-
-        metadata = pq.read_metadata(path)
-        schema = pq.read_schema(path)
-        discovered.append(
-            DiscoveredOutput(
-                generator_id=generator_id,
-                path=path,
-                filename=path.name,
-                rows=int(metadata.num_rows),
-                sha256=sha256_file(path),
-                columns=tuple(schema.names),
-            )
-        )
+        discovered.append(inspect_output(parquets[0], generator_id=generator_id))
 
     if errors:
         return DiscoveryResult(ok=False, outputs=tuple(discovered), errors=tuple(errors))
@@ -93,3 +80,20 @@ def discover_outputs() -> DiscoveryResult:
         return DiscoveryResult(ok=False, outputs=tuple(discovered), errors=tuple(errors))
 
     return DiscoveryResult(ok=True, outputs=tuple(discovered), errors=())
+
+
+def inspect_output(path: Path, *, generator_id: str) -> DiscoveredOutput:
+    """Inspect one explicitly selected output without changing it."""
+
+    import pyarrow.parquet as pq
+
+    metadata = pq.read_metadata(path)
+    schema = pq.read_schema(path)
+    return DiscoveredOutput(
+        generator_id=generator_id,
+        path=path,
+        filename=path.name,
+        rows=int(metadata.num_rows),
+        sha256=sha256_file(path),
+        columns=tuple(schema.names),
+    )

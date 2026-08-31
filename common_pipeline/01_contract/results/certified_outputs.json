@@ -1,0 +1,112 @@
+{
+  "registry_version": "certified_synthetic_outputs_v1",
+  "contract_authority": "common_pipeline/01_contract",
+  "expected_neural_methods": 4,
+  "expected_simple_baselines": 1,
+  "methods": [
+    {
+      "method_id": "bootstrap_jitter",
+      "method_family": "simple_baseline",
+      "source_model": "bootstrap_jitter",
+      "source_directory": "common_pipeline/01_contract",
+      "path": "common_pipeline/01_contract/outputs/bootstrap_jitter_seed42_normalized.parquet",
+      "sha256": "846a6e2306922704e8dec39445bed0f2a9b146fd57dd793efe0f647a499395fe",
+      "rows": 5000,
+      "logical_shape": [
+        5000,
+        65,
+        3
+      ],
+      "training_seed": 42,
+      "space": "global_channel_normalized",
+      "window_length": 65,
+      "n_channels": 3,
+      "channel_order": [
+        "log_return",
+        "log_high_low_range",
+        "log1p_volume"
+      ],
+      "features_flat_length": 195,
+      "normalization_status": "NORMALIZATION_NUMERICALLY_MATCHES",
+      "contract_status": "PASS"
+    },
+    {
+      "method_id": "cristian",
+      "method_family": "neural_generator",
+      "source_model": "wgan_gp",
+      "source_directory": "generadores/cristian",
+      "path": "generadores/cristian/outputs/synthetic_seed42_n5000_normalized.parquet",
+      "sha256": "135503132f19f8d856e89b595cbc283baafc29864e2fb042d99bc12bfe892123",
+      "rows": 5000,
+      "logical_shape": [
+        5000,
+        65,
+        3
+      ],
+      "training_seed": 42,
+      "space": "global_channel_normalized",
+      "window_length": 65,
+      "n_channels": 3,
+      "channel_order": [
+        "log_return",
+        "log_high_low_range",
+        "log1p_volume"
+      ],
+      "features_flat_length": 195,
+      "normalization_status": "NORMALIZATION_PROVENANCE_NOT_VERIFIABLE",
+      "contract_status": "PASS"
+    },
+    {
+      "method_id": "daniel",
+      "method_family": "neural_generator",
+      "source_model": "diffusion_ddpm",
+      "source_directory": "generadores/daniel",
+      "path": "generadores/daniel/outputs/diffusion_seed42_normalized.parquet",
+      "sha256": "bb9b5ad6b412fd785f73344cd765c56447b92de2b5827e40b3dc77d06e40a6c2",
+      "rows": 5000,
+      "logical_shape": [
+        5000,
+        65,
+        3
+      ],
+      "training_seed": 42,
+      "space": "global_channel_normalized",
+      "window_length": 65,
+      "n_channels": 3,
+      "channel_order": [
+        "log_return",
+        "log_high_low_range",
+        "log1p_volume"
+      ],
+      "features_flat_length": 195,
+      "normalization_status": "NORMALIZATION_PROVENANCE_NOT_VERIFIABLE",
+      "contract_status": "PASS"
+    },
+    {
+      "method_id": "david",
+      "method_family": "neural_generator",
+      "source_model": "temporal_jitter_0p40_rho0p85",
+      "source_directory": "generadores/david",
+      "path": "generadores/david/outputs/bootstrap_jitter_seed42_normalized.parquet",
+      "sha256": "0cf9be5d106783b62248b7b56f942ea121ef113640216eb8ba3b2889ba2230bf",
+      "rows": 5000,
+      "logical_shape": [
+        5000,
+        65,
+        3
+      ],
+      "training_seed": 42,
+      "space": "global_channel_normalized",
+      "window_length": 65,
+      "n_channels": 3,
+      "channel_order": [
+        "log_return",
+        "log_high_low_range",
+        "log1p_volume"
+      ],
+      "features_flat_length": 195,
+      "normalization_status": "NORMALIZATION_NUMERICALLY_MATCHES",
+      "contract_status": "PASS"
+    }
+  ]
+}
