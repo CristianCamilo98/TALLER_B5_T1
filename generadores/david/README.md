@@ -42,6 +42,7 @@ Para reproducir el sweep de mejoras:
 
 ```powershell
 python generadores/david/scripts/experiment_normalized.py
+python generadores/david/scripts/plot_experiment_diagnostics.py
 ```
 
 Si faltan los parquets canonicos de datos, regenerar primero:
