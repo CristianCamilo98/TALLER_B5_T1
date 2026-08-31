@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import json
 import hashlib
+import importlib
 import re
+import sys
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -18,6 +20,7 @@ import pandas as pd
 try:  # Package import from phases 02/03.
     from .constants import (
         CERTIFIED_OUTPUTS_JSON,
+        BASELINE_OUTPUT_NAME,
         CHANNEL_ORDER,
         EXPECTED_ROWS,
         EXPECTED_TRAINING_SEED,
@@ -34,6 +37,7 @@ try:  # Package import from phases 02/03.
 except ImportError:  # Direct script execution from 01_contract.
     from constants import (  # type: ignore
         CERTIFIED_OUTPUTS_JSON,
+        BASELINE_OUTPUT_NAME,
         CHANNEL_ORDER,
         EXPECTED_ROWS,
         EXPECTED_TRAINING_SEED,
@@ -198,6 +202,138 @@ def load_certified_registry(path: Path = CERTIFIED_OUTPUTS_JSON) -> dict:
     payload = json.loads(path.read_text(encoding="utf-8"))
     validate_registry_payload(payload)
     return payload
+
+
+def _authoritative_contract_modules() -> tuple[Any, Any]:
+    """Load the existing phase-01 discovery and validation implementation."""
+
+    module_root = Path(__file__).resolve().parent
+    if str(module_root) not in sys.path:
+        sys.path.insert(0, str(module_root))
+    return (
+        importlib.import_module("discovery"),
+        importlib.import_module("validation"),
+    )
+
+
+def current_certified_snapshot(
+    *,
+    repository_root: Path = REPO_ROOT,
+) -> tuple[list[dict], dict[str, dict]]:
+    """Evaluate current outputs in memory using the authoritative 01 contract."""
+
+    root = repository_root.resolve()
+    discovery, validation = _authoritative_contract_modules()
+    discovered = discovery.discover_outputs(root / "generadores")
+    rows = validation.validate_outputs(discovered.outputs)
+
+    entries: list[dict] = []
+    statuses: dict[str, dict] = {}
+    for output, row in zip(discovered.outputs, rows):
+        statuses[output.generator_id] = {
+            "contract_status": row.contract_status,
+            "sha256": output.sha256,
+            "errors": list(row.errors),
+        }
+        if row.contract_status == "PASS":
+            entries.append(
+                certified_entry(
+                    output,
+                    row,
+                    method_family=NEURAL_METHOD_FAMILY,
+                    repository_root=root,
+                )
+            )
+
+    baseline_path = (
+        root / "common_pipeline" / "01_contract" / "outputs" / BASELINE_OUTPUT_NAME
+    )
+    if baseline_path.is_file():
+        output = discovery.inspect_output(
+            baseline_path,
+            generator_id="bootstrap_jitter",
+        )
+        frame = pd.read_parquet(baseline_path)
+        row = validation.validate_output(output, frame)
+        statuses["bootstrap_jitter"] = {
+            "contract_status": row.contract_status,
+            "sha256": output.sha256,
+            "errors": list(row.errors),
+        }
+        if row.contract_status == "PASS":
+            entries.append(
+                certified_entry(
+                    output,
+                    row,
+                    method_family=SIMPLE_BASELINE_FAMILY,
+                    method_id="bootstrap_jitter",
+                    source_directory="common_pipeline/01_contract",
+                    repository_root=root,
+                )
+            )
+    else:
+        statuses["bootstrap_jitter"] = {
+            "contract_status": "MISSING",
+            "sha256": None,
+            "errors": [f"missing baseline output: {baseline_path}"],
+        }
+
+    return sorted(entries, key=lambda item: item["method_id"]), statuses
+
+
+def validate_registry_freshness(
+    payload: dict,
+    *,
+    repository_root: Path = REPO_ROOT,
+) -> dict:
+    """Fail if the saved registry differs from a read-only current 01 audit."""
+
+    validate_registry_payload(payload)
+    current_entries, statuses = current_certified_snapshot(
+        repository_root=repository_root,
+    )
+    saved = {str(item["method_id"]): item for item in payload["methods"]}
+    current = {str(item["method_id"]): item for item in current_entries}
+
+    added = sorted(current.keys() - saved.keys())
+    removed = sorted(saved.keys() - current.keys())
+    changed_sha = sorted(
+        method
+        for method in saved.keys() & current.keys()
+        if saved[method]["sha256"] != current[method]["sha256"]
+    )
+    comparison_fields = REQUIRED_METHOD_FIELDS - {"sha256"}
+    metadata_changed = sorted(
+        method
+        for method in saved.keys() & current.keys()
+        if any(saved[method][field] != current[method][field] for field in comparison_fields)
+    )
+
+    status_changes: list[str] = []
+    for method in added:
+        status_changes.append(f"{method}:UNREGISTERED->PASS")
+    for method in removed:
+        current_status = statuses.get(method, {}).get("contract_status", "MISSING")
+        status_changes.append(f"{method}:PASS->{current_status}")
+
+    if added or removed or changed_sha or metadata_changed:
+        details = [
+            f"added={added}",
+            f"removed={removed}",
+            f"changed_sha={changed_sha}",
+            f"metadata_changed={metadata_changed}",
+            f"status_changes={status_changes}",
+        ]
+        raise RuntimeError(
+            "CERTIFIED REGISTRY STALE — RUN 01_CONTRACT VALIDATION BEFORE 02/03: "
+            + "; ".join(details)
+        )
+
+    return {
+        "fresh": True,
+        "methods": sorted(current),
+        "statuses": statuses,
+    }
 
 
 def ensure_registry_completeness(

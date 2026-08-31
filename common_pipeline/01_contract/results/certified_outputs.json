@@ -31,6 +31,32 @@
       "contract_status": "PASS"
     },
     {
+      "method_id": "cristian",
+      "method_family": "neural_generator",
+      "source_model": "wgan_gp",
+      "source_directory": "generadores/cristian",
+      "path": "generadores/cristian/outputs/synthetic_seed42_n5000_normalized.parquet",
+      "sha256": "135503132f19f8d856e89b595cbc283baafc29864e2fb042d99bc12bfe892123",
+      "rows": 5000,
+      "logical_shape": [
+        5000,
+        65,
+        3
+      ],
+      "training_seed": 42,
+      "space": "global_channel_normalized",
+      "window_length": 65,
+      "n_channels": 3,
+      "channel_order": [
+        "log_return",
+        "log_high_low_range",
+        "log1p_volume"
+      ],
+      "features_flat_length": 195,
+      "normalization_status": "NORMALIZATION_PROVENANCE_NOT_VERIFIABLE",
+      "contract_status": "PASS"
+    },
+    {
       "method_id": "daniel",
       "method_family": "neural_generator",
       "source_model": "diffusion_ddpm",

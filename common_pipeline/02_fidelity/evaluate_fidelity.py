@@ -71,6 +71,10 @@ def load_registry_methods(
     allow_partial: bool,
 ) -> tuple[dict, dict[str, tuple[Path, dict]]]:
     payload = contract_registry.load_certified_registry(registry_path)
+    contract_registry.validate_registry_freshness(
+        payload,
+        repository_root=repository_root,
+    )
     contract_registry.ensure_registry_completeness(
         payload,
         allow_partial=allow_partial,

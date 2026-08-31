@@ -16,6 +16,17 @@ registry = importlib.import_module("common_pipeline.01_contract.registry")
 CHANNELS = ["log_return", "log_high_low_range", "log1p_volume"]
 
 
+@pytest.fixture(autouse=True)
+def _treat_fixture_registries_as_fresh(monkeypatch: pytest.MonkeyPatch) -> None:
+    """These unit fixtures test utility orchestration, not phase-01 discovery."""
+
+    monkeypatch.setattr(
+        registry,
+        "validate_registry_freshness",
+        lambda payload, repository_root: {"fresh": True},
+    )
+
+
 def _entry(root: Path, method_id: str, family: str, value: float = 0.0) -> dict:
     path = root / "outputs" / f"{method_id}.parquet"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -87,6 +98,29 @@ def test_utility_strict_mode_rejects_incomplete_registry(tmp_path: Path) -> None
             results_root=tmp_path / "runs",
             run_id="incomplete",
         )
+
+
+def test_utility_invokes_shared_registry_freshness_check(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    method = _entry(tmp_path, "alice", "neural_generator")
+    registry_path = _registry(tmp_path, [method])
+    calls: list[Path] = []
+
+    def record_freshness(payload: dict, *, repository_root: Path) -> dict:
+        calls.append(repository_root)
+        return {"fresh": True}
+
+    monkeypatch.setattr(registry, "validate_registry_freshness", record_freshness)
+    utility_run.prepare_run(
+        registry_path=registry_path,
+        repository_root=tmp_path,
+        results_root=tmp_path / "runs",
+        run_id="freshness",
+        allow_partial=True,
+    )
+    assert calls == [tmp_path]
 
 
 def test_real_only_is_one_common_result(monkeypatch) -> None:

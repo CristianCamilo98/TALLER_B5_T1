@@ -26,23 +26,24 @@ class DiscoveryResult:
     errors: tuple[str, ...]
 
 
-def _generator_dirs() -> list[Path]:
-    if not GENERATORS_ROOT.is_dir():
+def _generator_dirs(generators_root: Path | None = None) -> list[Path]:
+    root = generators_root if generators_root is not None else GENERATORS_ROOT
+    if not root.is_dir():
         return []
     return sorted(
         path
-        for path in GENERATORS_ROOT.iterdir()
+        for path in root.iterdir()
         if path.is_dir() and not path.name.startswith(".")
     )
 
 
-def discover_outputs() -> DiscoveryResult:
+def discover_outputs(generators_root: Path | None = None) -> DiscoveryResult:
     """Return exactly one parquet per generator or fail with explicit errors."""
 
     errors: list[str] = []
     discovered: list[DiscoveredOutput] = []
 
-    generator_dirs = _generator_dirs()
+    generator_dirs = _generator_dirs(generators_root)
     if len(generator_dirs) != EXPECTED_GENERATOR_COUNT:
         names = [path.name for path in generator_dirs]
         errors.append(

@@ -13,6 +13,17 @@ registry = importlib.import_module("common_pipeline.01_contract.registry")
 CHANNELS = ["log_return", "log_high_low_range", "log1p_volume"]
 
 
+@pytest.fixture(autouse=True)
+def _treat_fixture_registries_as_fresh(monkeypatch: pytest.MonkeyPatch) -> None:
+    """These unit fixtures test registry consumption, not phase-01 discovery."""
+
+    monkeypatch.setattr(
+        registry,
+        "validate_registry_freshness",
+        lambda payload, repository_root: {"fresh": True},
+    )
+
+
 def _method(root: Path, method_id: str, family: str) -> dict:
     path = root / "published" / f"{method_id}.parquet"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -85,3 +96,25 @@ def test_strict_registry_rejects_three_neural_plus_baseline(tmp_path: Path) -> N
             repository_root=tmp_path,
             allow_partial=False,
         )
+
+
+def test_fidelity_invokes_shared_registry_freshness_check(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    method = _method(tmp_path, "alice", "neural_generator")
+    registry_path = tmp_path / "certified_outputs.json"
+    registry.write_certified_registry([method], path=registry_path)
+    calls: list[Path] = []
+
+    def record_freshness(payload: dict, *, repository_root: Path) -> dict:
+        calls.append(repository_root)
+        return {"fresh": True}
+
+    monkeypatch.setattr(registry, "validate_registry_freshness", record_freshness)
+    load_registry_methods(
+        registry_path,
+        repository_root=tmp_path,
+        allow_partial=True,
+    )
+    assert calls == [tmp_path]

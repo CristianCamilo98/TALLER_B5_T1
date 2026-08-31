@@ -47,6 +47,10 @@ def prepare_run(
     registry_path = registry_path.resolve()
     repository_root = repository_root.resolve()
     payload = contract_registry.load_certified_registry(registry_path)
+    contract_registry.validate_registry_freshness(
+        payload,
+        repository_root=repository_root,
+    )
     contract_registry.ensure_registry_completeness(payload, allow_partial=allow_partial)
     resolved = contract_registry.resolve_certified_paths(
         payload,
