@@ -66,15 +66,20 @@ def _unique_channel_orders(frame: pd.DataFrame) -> list[tuple[str, ...] | None]:
     return [_normalize_channel_order(value) for value in frame["channel_order"].dropna()]
 
 
-def validate_output(output: DiscoveredOutput, frame: pd.DataFrame) -> ContractReportRow:
+def validate_output(
+    output: DiscoveredOutput,
+    frame: pd.DataFrame,
+    *,
+    expected_rows: int = EXPECTED_ROWS,
+) -> ContractReportRow:
     errors: list[str] = []
 
     schema = assess_schema(tuple(frame.columns))
     if not schema.ok:
         errors.extend(schema.errors)
 
-    if len(frame) != EXPECTED_ROWS:
-        errors.append(f"rows={len(frame)}, expected {EXPECTED_ROWS}")
+    if len(frame) != expected_rows:
+        errors.append(f"rows={len(frame)}, expected {expected_rows}")
 
     training_seed = None
     if "training_seed" in frame.columns:
@@ -151,7 +156,7 @@ def validate_output(output: DiscoveredOutput, frame: pd.DataFrame) -> ContractRe
                 errors.append(f"row {idx}: C-order/session-major reconstruction mismatch")
                 break
 
-    provenance = assess_normalization_provenance(output.generator_id)
+    provenance = assess_normalization_provenance(output.generator_id, output.path)
     if provenance == "NORMALIZATION_MISMATCH":
         errors.append("normalization provenance indicates mismatch with canonical normalizer")
 

@@ -43,8 +43,12 @@ def test_synthetic_loader_accepts_repeated_list_metadata(tmp_path: Path) -> None
     windows = _windows(2)
     pd.DataFrame(
         {
+            "synthetic_id": range(2),
+            "source_model": ["fixture"] * 2,
             "training_seed": [42, 42],
             "space": ["global_channel_normalized"] * 2,
+            "window_length": [65] * 2,
+            "n_channels": [3] * 2,
             "channel_order": [list(CHANNEL_ORDER), list(CHANNEL_ORDER)],
             "features_flat": [window.reshape(-1) for window in windows],
         }
@@ -54,25 +58,31 @@ def test_synthetic_loader_accepts_repeated_list_metadata(tmp_path: Path) -> None
     assert np.array_equal(pool.windows, windows)
 
 
-def test_synthetic_loader_rejects_incompatible_published_scaler(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "missing_column",
+    ["training_seed", "space", "channel_order"],
+)
+def test_synthetic_loader_never_infers_missing_metadata(
+    tmp_path: Path,
+    missing_column: str,
+) -> None:
     path = tmp_path / "method_seed42_normalized.parquet"
     windows = _windows(2)
-    pd.DataFrame({"features_flat": [window.reshape(-1) for window in windows]}).to_parquet(
-        path, index=False
-    )
-    path.with_name(f"{path.stem}_manifest.json").write_text(
-        '{"seed": 42, "space": "z-score donor_train", '
-        '"channels": ["log_return", "log_high_low_range", "log1p_volume"], '
-        '"scaler_mean": [9, 9, 9], "scaler_std": [1, 1, 1]}',
-        encoding="utf-8",
-    )
-    expected = GlobalChannelStatistics(
-        mean=np.zeros(3), std=np.ones(3), raw_std=np.ones(3)
-    )
-    with pytest.raises(ValueError, match="not the common float64"):
-        load_synthetic_pool(
-            path, method="fixture", expected_count=2, expected_normalizer=expected
-        )
+    frame = pd.DataFrame(
+        {
+            "synthetic_id": range(2),
+            "source_model": ["fixture"] * 2,
+            "training_seed": [42] * 2,
+            "space": ["global_channel_normalized"] * 2,
+            "window_length": [65] * 2,
+            "n_channels": [3] * 2,
+            "channel_order": [list(CHANNEL_ORDER)] * 2,
+            "features_flat": [window.reshape(-1) for window in windows],
+        }
+    ).drop(columns=[missing_column])
+    frame.to_parquet(path, index=False)
+    with pytest.raises(ValueError, match="lacks certified metadata"):
+        load_synthetic_pool(path, method="fixture", expected_count=2)
 
 
 def test_common_subset_is_reproducible_and_shared_across_methods() -> None:

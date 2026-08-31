@@ -5,6 +5,8 @@ de las tablas ya reportadas.
 """
 from __future__ import annotations
 
+import argparse
+import importlib
 from pathlib import Path
 
 import matplotlib
@@ -12,9 +14,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-TABLES_DIR = Path("common_pipeline/03_utility/results/tables")
-FIGURES_DIR = Path("common_pipeline/03_utility/results/figures")
-FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+utility_run = importlib.import_module("common_pipeline.03_utility.utility_run")
+TABLES_DIR: Path
+FIGURES_DIR: Path
 
 RATIO_LABELS = {0.0: "0%", 0.25: "25%", 0.50: "50%", 0.75: "75%"}
 
@@ -90,7 +92,25 @@ def plot_utility_summary(summary):
     print("Guardado: utility_summary.png")
 
 
-def main():
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--registry-path", type=Path, default=utility_run.DEFAULT_REGISTRY_PATH)
+    parser.add_argument("--results-root", type=Path, default=utility_run.RESULTS_ROOT)
+    parser.add_argument("--run-id")
+    return parser
+
+
+def main(argv: list[str] | None = None):
+    global TABLES_DIR, FIGURES_DIR
+    args = build_parser().parse_args(argv)
+    run_dir = utility_run.existing_run_dir(
+        results_root=args.results_root,
+        registry_path=args.registry_path,
+        run_id=args.run_id,
+    )
+    TABLES_DIR = run_dir / "tables"
+    FIGURES_DIR = run_dir / "figures"
+    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     plot_physical_rejection_rates()
     summary = pd.read_csv(TABLES_DIR / "downstream_results_summary.csv")
     _plot_metric_vs_ratio(summary, "rmse", "rmse_vs_synthetic_ratio.png", "RMSE")

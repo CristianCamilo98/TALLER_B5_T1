@@ -4,11 +4,42 @@
   "seed": 42,
   "noise_scale": 0.05,
   "donor_train_path": "data/features/windows/donor_train.parquet",
-  "donor_train_sha256": "b92a36a01b1931397d9a2c88c0f3473f224586b0193b0aefbb4e47f12eb00eca",
+  "donor_train_sha256": "5f1e33f69b02bad86d89dcc2f67a1018cef68aaeacfbf72c310a1b7902fc268f",
   "n_windows": 5000,
   "logical_shape": [
     5000,
     65,
     3
-  ]
+  ],
+  "channel_order": [
+    "log_return",
+    "log_high_low_range",
+    "log1p_volume"
+  ],
+  "space": "global_channel_normalized",
+  "normalization": {
+    "type": "global_channel_zscore",
+    "fit_split": "donor_train",
+    "fit_axes": [
+      0,
+      1
+    ],
+    "fit_dtype": "float64",
+    "output_dtype": "float32",
+    "ddof": 0,
+    "std_threshold": 1e-08,
+    "mean": [
+      0.0008114289710088066,
+      0.02602580514891484,
+      16.06027218135258
+    ],
+    "std": [
+      0.023515504591060377,
+      0.01672428879172832,
+      1.0933253360280637
+    ],
+    "normalizer_sha256": "7e0fcce9c67d6a01581df4bed12e130555b164e7e1f846c39b25b4996eecef8e"
+  },
+  "parquet_sha256": "846a6e2306922704e8dec39445bed0f2a9b146fd57dd793efe0f647a499395fe",
+  "reproducibility_pass": true
 }

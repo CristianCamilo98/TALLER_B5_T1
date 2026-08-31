@@ -9,6 +9,7 @@ import baseline
 from constants import BASELINE_SEED, DONOR_TRAIN_PATH, EXPECTED_ROWS, WINDOW_LENGTH
 from io_utils import sha256_file, stack_features
 from normalizer import load_donor_train_normalized
+from baseline import generate_baseline_windows
 from validation import validate_output
 from discovery import DiscoveredOutput
 
@@ -51,3 +52,14 @@ def test_baseline_output_shape_and_contract(tmp_path: Path, monkeypatch):
     assert np.isfinite(tensor).all()
     assert len(frame) == EXPECTED_ROWS
     assert frame["synthetic_id"].nunique() == EXPECTED_ROWS
+
+
+def test_baseline_array_generation_is_reproducible_and_does_not_mutate_input():
+    donor = np.random.default_rng(10).normal(size=(8, 65, 3)).astype(np.float32)
+    before = donor.copy()
+    first = generate_baseline_windows(donor, seed=42, noise_scale=0.05, n_windows=12)
+    second = generate_baseline_windows(donor, seed=42, noise_scale=0.05, n_windows=12)
+    different = generate_baseline_windows(donor, seed=123, noise_scale=0.05, n_windows=12)
+    np.testing.assert_array_equal(first, second)
+    assert not np.array_equal(first, different)
+    np.testing.assert_array_equal(donor, before)

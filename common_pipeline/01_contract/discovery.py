@@ -67,21 +67,7 @@ def discover_outputs() -> DiscoveryResult:
             )
             continue
 
-        path = parquets[0]
-        import pyarrow.parquet as pq
-
-        metadata = pq.read_metadata(path)
-        schema = pq.read_schema(path)
-        discovered.append(
-            DiscoveredOutput(
-                generator_id=generator_id,
-                path=path,
-                filename=path.name,
-                rows=int(metadata.num_rows),
-                sha256=sha256_file(path),
-                columns=tuple(schema.names),
-            )
-        )
+        discovered.append(inspect_output(parquets[0], generator_id=generator_id))
 
     if errors:
         return DiscoveryResult(ok=False, outputs=tuple(discovered), errors=tuple(errors))
@@ -93,3 +79,20 @@ def discover_outputs() -> DiscoveryResult:
         return DiscoveryResult(ok=False, outputs=tuple(discovered), errors=tuple(errors))
 
     return DiscoveryResult(ok=True, outputs=tuple(discovered), errors=())
+
+
+def inspect_output(path: Path, *, generator_id: str) -> DiscoveredOutput:
+    """Inspect one explicitly selected output without changing it."""
+
+    import pyarrow.parquet as pq
+
+    metadata = pq.read_metadata(path)
+    schema = pq.read_schema(path)
+    return DiscoveredOutput(
+        generator_id=generator_id,
+        path=path,
+        filename=path.name,
+        rows=int(metadata.num_rows),
+        sha256=sha256_file(path),
+        columns=tuple(schema.names),
+    )

@@ -8,15 +8,17 @@ una calibracion individual propia a partir de aqui.
 """
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-NVDA_VISIBLE_PATH = "data/features/windows/nvda_visible.parquet"
+from . import utility_run
+
+NVDA_VISIBLE_PATH = utility_run.NVDA_VISIBLE_PATH
 CHANNEL_ORDER = ("log_return", "log_high_low_range", "log1p_volume")
 WINDOW_LENGTH = 65
-OUTPUT_PATH = Path("common_pipeline/03_utility/results/tables/nvda_calibration.csv")
 
 
 def reconstruct_unique_daily(path: str) -> tuple[np.ndarray, object, object]:
@@ -41,12 +43,32 @@ def reconstruct_unique_daily(path: str) -> tuple[np.ndarray, object, object]:
     return daily, df["window_start_date"].iloc[0], df["window_end_date"].iloc[-1]
 
 
-def main() -> None:
-    daily, start_date, end_date = reconstruct_unique_daily(NVDA_VISIBLE_PATH)
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--registry-path", type=Path, default=utility_run.DEFAULT_REGISTRY_PATH)
+    parser.add_argument("--results-root", type=Path, default=utility_run.RESULTS_ROOT)
+    parser.add_argument("--run-id")
+    parser.add_argument("--allow-partial", action="store_true")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = build_parser().parse_args(argv)
+    run_dir, manifest = utility_run.prepare_run(
+        registry_path=args.registry_path,
+        results_root=args.results_root,
+        run_id=args.run_id,
+        allow_partial=args.allow_partial,
+    )
+    daily, start_date, end_date = reconstruct_unique_daily(str(NVDA_VISIBLE_PATH))
     n_unique_days = daily.shape[0]
+    if n_unique_days != 126 or not np.isfinite(daily).all():
+        raise ValueError("NVDA visible calibration must contain 126 finite unique days")
 
     mean = daily.mean(axis=0)
     std = daily.std(axis=0, ddof=0)
+    if np.any(std <= 0):
+        raise ValueError("NVDA visible calibration std must be positive")
 
     rows = [
         {
@@ -62,12 +84,25 @@ def main() -> None:
     ]
     result = pd.DataFrame(rows)
 
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    result.to_csv(OUTPUT_PATH, index=False)
+    output_path = run_dir / "tables" / "nvda_calibration.csv"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    result.to_csv(output_path, index=False)
+    calibration = dict(manifest["nvda_calibration"])
+    calibration.update(
+        {
+            "n_unique_daily_observations": n_unique_days,
+            "start_date": str(start_date),
+            "end_date": str(end_date),
+            "mean": mean.tolist(),
+            "std": std.tolist(),
+            "table_path": utility_run.run_relative_path(run_dir, output_path),
+        }
+    )
+    utility_run.update_run_manifest(run_dir, {"nvda_calibration": calibration})
 
     print(f"n_unique_days reconstruidos: {n_unique_days} (esperado: 126)")
     print(result.to_string(index=False))
-    print(f"\nGuardado: {OUTPUT_PATH}")
+    print(f"\nGuardado: {output_path}")
 
 
 if __name__ == "__main__":

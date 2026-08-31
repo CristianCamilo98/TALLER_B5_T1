@@ -1,11 +1,29 @@
 {
   "discovery_ok": false,
   "discovery_errors": [
-    "cristian: expected exactly one official parquet, found 6: ['synthetic_seed123_n5000.parquet', 'synthetic_seed123_n5000_normalized.parquet', 'synthetic_seed2026_n5000.parquet', 'synthetic_seed2026_n5000_normalized.parquet', 'synthetic_seed42_n5000.parquet', 'synthetic_seed42_n5000_normalized.parquet']",
-    "david: missing outputs/ directory",
-    "marco: column set ['sample_id', 'features_flat'] != reference ['synthetic_id', 'source_model', 'training_seed', 'space', 'window_length', 'n_channels', 'channel_order', 'features_flat']"
+    "daniel: column set ['synthetic_id', 'source_model', 'training_seed', 'space', 'window_length', 'n_channels', 'channel_order', 'features_flat'] != reference ['synthetic_id', 'seed', 'ratio', 'split', 'source_model', 'checkpoint', 'features_flat']",
+    "david: column set ['synthetic_id', 'source_model', 'training_seed', 'space', 'window_length', 'n_channels', 'channel_order', 'features_flat'] != reference ['synthetic_id', 'seed', 'ratio', 'split', 'source_model', 'checkpoint', 'features_flat']",
+    "marco: column set ['sample_id', 'features_flat'] != reference ['synthetic_id', 'seed', 'ratio', 'split', 'source_model', 'checkpoint', 'features_flat']"
   ],
   "generators": [
+    {
+      "generator": "cristian",
+      "file": "synthetic_seed42_n5000_normalized.parquet",
+      "sha256": "57e12759d3bb5b7b49aff3eb854d23cbc80099c55724f8076c112c46e607f6ff",
+      "rows": 5000,
+      "logical_shape": "(5000,65,3)",
+      "training_seed": null,
+      "space": null,
+      "channel_order": "unknown",
+      "finite": "YES",
+      "exact_duplicates": 0,
+      "normalization_provenance": "NORMALIZATION_PROVENANCE_NOT_VERIFIABLE",
+      "contract_status": "FAIL",
+      "errors": [
+        "missing canonical columns: ['training_seed', 'space', 'window_length', 'n_channels', 'channel_order']",
+        "unexpected extra columns: ['checkpoint', 'ratio', 'seed', 'split']"
+      ]
+    },
     {
       "generator": "daniel",
       "file": "diffusion_seed42_normalized.parquet",
@@ -17,7 +35,22 @@
       "channel_order": "['log_return', 'log_high_low_range', 'log1p_volume']",
       "finite": "YES",
       "exact_duplicates": 0,
-      "normalization_provenance": "PROVENANCE_NOT_VERIFIABLE",
+      "normalization_provenance": "NORMALIZATION_PROVENANCE_NOT_VERIFIABLE",
+      "contract_status": "PASS",
+      "errors": []
+    },
+    {
+      "generator": "david",
+      "file": "bootstrap_jitter_seed42_normalized.parquet",
+      "sha256": "0cf9be5d106783b62248b7b56f942ea121ef113640216eb8ba3b2889ba2230bf",
+      "rows": 5000,
+      "logical_shape": "(5000,65,3)",
+      "training_seed": 42,
+      "space": "global_channel_normalized",
+      "channel_order": "['log_return', 'log_high_low_range', 'log1p_volume']",
+      "finite": "YES",
+      "exact_duplicates": 0,
+      "normalization_provenance": "NORMALIZATION_NUMERICALLY_MATCHES",
       "contract_status": "PASS",
       "errors": []
     },
@@ -39,6 +72,21 @@
         "unexpected extra columns: ['sample_id']",
         "normalization provenance indicates mismatch with canonical normalizer"
       ]
+    },
+    {
+      "generator": "bootstrap_jitter",
+      "file": "bootstrap_jitter_seed42_normalized.parquet",
+      "sha256": "846a6e2306922704e8dec39445bed0f2a9b146fd57dd793efe0f647a499395fe",
+      "rows": 5000,
+      "logical_shape": "(5000,65,3)",
+      "training_seed": 42,
+      "space": "global_channel_normalized",
+      "channel_order": "['log_return', 'log_high_low_range', 'log1p_volume']",
+      "finite": "YES",
+      "exact_duplicates": 0,
+      "normalization_provenance": "NORMALIZATION_NUMERICALLY_MATCHES",
+      "contract_status": "PASS",
+      "errors": []
     }
   ]
 }
