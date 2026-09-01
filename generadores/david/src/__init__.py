@@ -1,6 +1,7 @@
 """David's Normalizing Flow implementation."""
 
 from .normalizing_flow import (
+    ActNorm,
     FlowConfig,
     RealNVP,
     TrainingConfig,
@@ -13,6 +14,7 @@ from .normalizing_flow import (
 )
 
 __all__ = [
+    "ActNorm",
     "FlowConfig",
     "RealNVP",
     "TrainingConfig",

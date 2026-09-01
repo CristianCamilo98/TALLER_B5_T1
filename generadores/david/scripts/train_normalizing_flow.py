@@ -77,14 +77,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=EXPECTED_TRAINING_SEED)
     parser.add_argument("--epochs", type=int, default=10000)
     parser.add_argument("--batch-size", type=int, default=256)
-    parser.add_argument("--learning-rate", type=float, default=8.0e-4)
-    parser.add_argument("--weight-decay", type=float, default=1.0e-5)
+    parser.add_argument("--learning-rate", type=float, default=5.0e-4)
+    parser.add_argument("--weight-decay", type=float, default=5.0e-5)
     parser.add_argument("--hidden-dim", type=int, default=96)
     parser.add_argument("--hidden-layers", type=int, default=2)
-    parser.add_argument("--coupling-layers", type=int, default=6)
+    parser.add_argument("--coupling-layers", type=int, default=8)
     parser.add_argument("--scale-clip", type=float, default=1.5)
     parser.add_argument("--validation-fraction", type=float, default=0.10)
     parser.add_argument("--patience", type=int, default=200)
+    parser.add_argument("--log-every", type=int, default=25)
     return parser.parse_args()
 
 
@@ -111,18 +112,42 @@ def main() -> int:
         patience=args.patience,
         seed=args.seed,
     )
+    def _progress(row: dict[str, float], improved: bool, stale_epochs: int) -> None:
+        epoch = int(row["epoch"])
+        if args.log_every <= 0:
+            return
+        if epoch == 1 or epoch % args.log_every == 0 or stale_epochs >= args.patience:
+            marker = " best" if improved else ""
+            print(
+                "epoch "
+                f"{epoch:05d} "
+                f"train_nll={row['train_nll']:.6f} "
+                f"val_nll={row['validation_nll']:.6f} "
+                f"grad_norm={row['grad_norm']:.3f} "
+                f"stale={stale_epochs}/{args.patience}"
+                f"{marker}",
+                flush=True,
+            )
+
     model, history = train_real_nvp(
         donor,
         flow_config=flow_config,
         training_config=training_config,
+        progress_callback=_progress,
     )
     train_nll = model.negative_log_likelihood(flatten_windows(donor))
+    best_row = min(history, key=lambda row: row["validation_nll"])
     metadata = {
         "source_model": SOURCE_MODEL,
         "model_family": "normalizing_flow",
         "architecture": {
             "name": "RealNVP",
-            "transform": "affine_coupling",
+            "transform": "actnorm_affine_coupling_fixed_permutation",
+            "components": [
+                "learned_actnorm",
+                "affine_coupling",
+                "fixed_random_permutation",
+            ],
             "invertible": True,
             "uses_log_det_jacobian": True,
             "base_distribution": "standard_normal",
@@ -134,7 +159,9 @@ def main() -> int:
             "training_config": training_config.to_dict(),
             "final_full_donor_train_nll": train_nll,
             "epochs_completed": len(history),
-            "best_validation_nll": min(row["validation_nll"] for row in history),
+            "best_epoch": int(best_row["epoch"]),
+            "best_validation_nll": best_row["validation_nll"],
+            "stopping_reason": "early_stopping" if len(history) < args.epochs else "max_epochs",
         },
         "built_at_utc": datetime.now(timezone.utc).isoformat(),
         "seed": args.seed,

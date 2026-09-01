@@ -3,6 +3,11 @@
   "model_family": "normalizing_flow",
   "architecture": {
     "base_distribution": "standard_normal",
+    "components": [
+      "learned_actnorm",
+      "affine_coupling",
+      "fixed_random_permutation"
+    ],
     "flow_config": {
       "hidden_dims": [
         96,
@@ -10,37 +15,68 @@
       ],
       "init_scale": 0.04,
       "input_dim": 195,
-      "n_coupling_layers": 6,
+      "n_coupling_layers": 8,
       "scale_clip": 1.5,
-      "seed": 42
+      "seed": 42,
+      "use_actnorm": true,
+      "use_permutations": true
     },
     "invertible": true,
     "name": "RealNVP",
-    "transform": "affine_coupling",
+    "transform": "actnorm_affine_coupling_fixed_permutation",
     "uses_log_det_jacobian": true
   },
   "training": {
-    "best_validation_nll": 139.1703078244066,
-    "epochs_completed": 287,
-    "final_full_donor_train_nll": 119.94935151328477,
+    "best_epoch": 123,
+    "best_validation_nll": 137.68694734646385,
+    "epochs_completed": 323,
+    "final_full_donor_train_nll": 116.36709419544655,
     "objective": "negative_log_likelihood",
     "optimizer": "Adam",
+    "stopping_reason": "early_stopping",
     "training_config": {
       "batch_size": 256,
       "epochs": 10000,
       "gradient_clip_norm": 25.0,
-      "learning_rate": 0.0008,
+      "learning_rate": 0.0005,
       "min_delta": 1e-05,
       "patience": 200,
       "seed": 42,
       "validation_fraction": 0.1,
-      "weight_decay": 1e-05
+      "weight_decay": 5e-05
     }
   },
-  "algorithm": "RealNVP affine coupling normalizing flow",
+  "algorithm": "RealNVP ActNorm affine-coupling normalizing flow",
   "seed": 42,
   "training_seed": 42,
   "sampling_temperature": 1.0,
+  "sampling": {
+    "enabled": true,
+    "mode": "deterministic_rejection_sampling_no_clipping",
+    "drawn": 5500,
+    "accepted_before_trim": 5498,
+    "rejected": 2,
+    "oversample_factor": 1.1,
+    "max_draws": 50000,
+    "calibration": {
+      "calibration_path": "data/features/windows/nvda_visible.parquet",
+      "n_unique_daily_observations": 126,
+      "mean": [
+        5.396473188834603e-05,
+        0.04438170295257567,
+        20.062803490243716
+      ],
+      "std": [
+        0.03680451053400402,
+        0.016273532956305847,
+        0.2601047781878443
+      ],
+      "normalized_nonnegative_thresholds": {
+        "log_high_low_range": -2.7272321917889477,
+        "log1p_volume": -77.13354452779265
+      }
+    }
+  },
   "space": "global_channel_normalized",
   "channel_order": [
     "log_return",
@@ -60,15 +96,15 @@
   "donor_train_path": "data/features/windows/donor_train.parquet",
   "donor_train_sha256": "28848c901d0c9e54182c52ab103a375eb067d9969cd3ec183c7550a6b1255939",
   "checkpoint_path": "generadores/david/artifacts/checkpoints/normalizing_flow_seed42.npz",
-  "checkpoint_sha256": "106f6fbf839c9cc5cec24ae94ab6690dec84eb38a3a65155a07c966f78ff74d9",
+  "checkpoint_sha256": "f4d8cc458bfb65e64dc00bccf165119f86a36eb634fcb668920a6ba0c9a53f72",
   "checkpoint_training_seed": 42,
-  "checkpoint_history_rows": 287,
+  "checkpoint_history_rows": 323,
   "n_windows": 5000,
   "logical_shape": [
     5000,
     65,
     3
   ],
-  "parquet_sha256": "bf83a3163b86eeba9ac50853f98749018b3cc121b9919027b07842324eed2976",
-  "built_at_utc": "2026-09-01T07:10:41.546572+00:00"
+  "parquet_sha256": "4ee0428cd9336ee64c763d5e6f46c7bea97632a447247bb3b9d9213df11e6fe6",
+  "built_at_utc": "2026-09-01T17:00:21.688936+00:00"
 }

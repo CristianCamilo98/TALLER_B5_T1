@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 
@@ -24,9 +24,11 @@ FEATURE_DIM = WINDOW_LENGTH * N_CHANNELS
 class FlowConfig:
     input_dim: int = FEATURE_DIM
     hidden_dims: tuple[int, ...] = (96, 96)
-    n_coupling_layers: int = 6
+    n_coupling_layers: int = 8
     scale_clip: float = 1.5
     init_scale: float = 0.04
+    use_actnorm: bool = True
+    use_permutations: bool = True
     seed: int = 42
 
     def to_dict(self) -> dict[str, Any]:
@@ -38,6 +40,8 @@ class FlowConfig:
     def from_dict(cls, payload: dict[str, Any]) -> "FlowConfig":
         values = dict(payload)
         values["hidden_dims"] = tuple(int(value) for value in values["hidden_dims"])
+        values.setdefault("use_actnorm", False)
+        values.setdefault("use_permutations", False)
         return cls(**values)
 
 
@@ -73,6 +77,23 @@ def unflatten_windows(values: np.ndarray) -> np.ndarray:
 
 def _mask(input_dim: int, layer_index: int) -> np.ndarray:
     return ((np.arange(input_dim) + layer_index) % 2).astype(np.float64)
+
+
+def _build_permutations(
+    *,
+    input_dim: int,
+    n_coupling_layers: int,
+    seed: int,
+) -> list[np.ndarray]:
+    rng = np.random.default_rng(seed + 7919)
+    identity = np.arange(input_dim)
+    permutations: list[np.ndarray] = []
+    for idx in range(max(0, n_coupling_layers - 1)):
+        permutation = rng.permutation(input_dim)
+        if np.array_equal(permutation, identity):
+            permutation = np.roll(identity, idx + 1)
+        permutations.append(permutation.astype(np.int64))
+    return permutations
 
 
 class DenseTanhNetwork:
@@ -142,6 +163,54 @@ class DenseTanhNetwork:
         for idx in range(len(self.weights)):
             self.weights[idx][...] = state[f"{prefix}.W{idx}"]
             self.biases[idx][...] = state[f"{prefix}.b{idx}"]
+
+
+class ActNorm:
+    """Trainable per-dimension affine transform with exact log determinant."""
+
+    def __init__(self, input_dim: int) -> None:
+        self.log_scale = np.zeros(input_dim, dtype=np.float64)
+        self.bias = np.zeros(input_dim, dtype=np.float64)
+
+    def forward(self, values: np.ndarray, *, cache: bool = False) -> Any:
+        scale = np.exp(self.log_scale)
+        transformed = values * scale + self.bias
+        log_det = np.full(values.shape[0], float(self.log_scale.sum()), dtype=np.float64)
+        if not cache:
+            return transformed, log_det
+        return transformed, log_det, {"input": values, "scale": scale}
+
+    def inverse(self, values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        recovered = (values - self.bias) * np.exp(-self.log_scale)
+        log_det = np.full(values.shape[0], -float(self.log_scale.sum()), dtype=np.float64)
+        return recovered, log_det
+
+    def backward(
+        self,
+        grad_output: np.ndarray,
+        grad_log_det: np.ndarray,
+        cache: dict[str, Any],
+        prefix: str,
+    ) -> tuple[np.ndarray, dict[str, np.ndarray]]:
+        values = cache["input"]
+        scale = cache["scale"]
+        grad_input = grad_output * scale
+        grad_log_scale = (grad_output * values * scale).sum(axis=0) + float(grad_log_det.sum())
+        grad_bias = grad_output.sum(axis=0)
+        return grad_input, {
+            f"{prefix}.log_scale": grad_log_scale,
+            f"{prefix}.bias": grad_bias,
+        }
+
+    def parameters(self, prefix: str) -> dict[str, np.ndarray]:
+        return {
+            f"{prefix}.log_scale": self.log_scale,
+            f"{prefix}.bias": self.bias,
+        }
+
+    def load_parameters(self, prefix: str, state: dict[str, np.ndarray]) -> None:
+        self.log_scale[...] = state[f"{prefix}.log_scale"]
+        self.bias[...] = state[f"{prefix}.bias"]
 
 
 class AffineCoupling:
@@ -228,18 +297,49 @@ class RealNVP:
             AffineCoupling(mask=_mask(config.input_dim, idx), config=config, rng=rng)
             for idx in range(config.n_coupling_layers)
         ]
+        self.actnorms = (
+            [ActNorm(config.input_dim) for _ in range(config.n_coupling_layers)]
+            if config.use_actnorm
+            else []
+        )
+        self.permutations = (
+            _build_permutations(
+                input_dim=config.input_dim,
+                n_coupling_layers=config.n_coupling_layers,
+                seed=config.seed,
+            )
+            if config.use_permutations
+            else []
+        )
+        self.inverse_permutations = [
+            np.argsort(permutation) for permutation in self.permutations
+        ]
 
     def forward(self, values: np.ndarray, *, cache: bool = False) -> Any:
         current = np.asarray(values, dtype=np.float64)
         log_det = np.zeros(current.shape[0], dtype=np.float64)
         caches = []
         for idx, layer in enumerate(self.layers):
+            actnorm_cache = None
+            if self.config.use_actnorm:
+                if cache:
+                    current, actnorm_log_det, actnorm_cache = self.actnorms[idx].forward(
+                        current,
+                        cache=True,
+                    )
+                else:
+                    current, actnorm_log_det = self.actnorms[idx].forward(current)
+                log_det += actnorm_log_det
+
             if cache:
                 current, layer_log_det, layer_cache = layer.forward(current, cache=True)
-                caches.append((idx, layer_cache))
+                caches.append((idx, actnorm_cache, layer_cache))
             else:
                 current, layer_log_det = layer.forward(current)
             log_det += layer_log_det
+
+            if idx < len(self.permutations):
+                current = current[:, self.permutations[idx]]
         if cache:
             return current, log_det, caches
         return current, log_det
@@ -247,9 +347,14 @@ class RealNVP:
     def inverse(self, values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         current = np.asarray(values, dtype=np.float64)
         log_det = np.zeros(current.shape[0], dtype=np.float64)
-        for layer in reversed(self.layers):
-            current, layer_log_det = layer.inverse(current)
+        for idx in range(len(self.layers) - 1, -1, -1):
+            if idx < len(self.inverse_permutations):
+                current = current[:, self.inverse_permutations[idx]]
+            current, layer_log_det = self.layers[idx].inverse(current)
             log_det += layer_log_det
+            if self.config.use_actnorm:
+                current, actnorm_log_det = self.actnorms[idx].inverse(current)
+                log_det += actnorm_log_det
         return current, log_det
 
     def log_prob(self, values: np.ndarray) -> np.ndarray:
@@ -269,7 +374,9 @@ class RealNVP:
         grad = latent / batch.shape[0]
         grad_log_det = np.full(batch.shape[0], -1.0 / batch.shape[0], dtype=np.float64)
         grads: dict[str, np.ndarray] = {}
-        for idx, layer_cache in reversed(caches):
+        for idx, actnorm_cache, layer_cache in reversed(caches):
+            if idx < len(self.inverse_permutations):
+                grad = grad[:, self.inverse_permutations[idx]]
             grad, layer_grads = self.layers[idx].backward(
                 grad,
                 grad_log_det,
@@ -277,11 +384,21 @@ class RealNVP:
                 f"layers.{idx}",
             )
             grads.update(layer_grads)
+            if self.config.use_actnorm:
+                grad, actnorm_grads = self.actnorms[idx].backward(
+                    grad,
+                    grad_log_det,
+                    actnorm_cache,
+                    f"actnorms.{idx}",
+                )
+                grads.update(actnorm_grads)
         return loss, grads
 
     def parameters(self) -> dict[str, np.ndarray]:
         params: dict[str, np.ndarray] = {}
         for idx, layer in enumerate(self.layers):
+            if self.config.use_actnorm:
+                params.update(self.actnorms[idx].parameters(f"actnorms.{idx}"))
             params.update(layer.parameters(f"layers.{idx}"))
         return params
 
@@ -290,6 +407,8 @@ class RealNVP:
 
     def load_state_dict(self, state: dict[str, np.ndarray]) -> None:
         for idx, layer in enumerate(self.layers):
+            if self.config.use_actnorm:
+                self.actnorms[idx].load_parameters(f"actnorms.{idx}", state)
             layer.load_parameters(f"layers.{idx}", state)
 
 
@@ -344,6 +463,7 @@ def train_real_nvp(
     *,
     flow_config: FlowConfig,
     training_config: TrainingConfig,
+    progress_callback: Callable[[dict[str, float], bool, int], None] | None = None,
 ) -> tuple[RealNVP, list[dict[str, float]]]:
     values = flatten_windows(windows)
     rng = np.random.default_rng(training_config.seed)
@@ -387,14 +507,18 @@ def train_real_nvp(
             "grad_norm": float(np.mean(grad_norms)),
         }
         history.append(row)
+        improved = False
         if validation_nll + training_config.min_delta < best_validation:
             best_validation = validation_nll
             best_state = model.state_dict()
             stale_epochs = 0
+            improved = True
         else:
             stale_epochs += 1
-            if stale_epochs >= training_config.patience:
-                break
+        if progress_callback is not None:
+            progress_callback(row, improved, stale_epochs)
+        if not improved and stale_epochs >= training_config.patience:
+            break
 
     model.load_state_dict(best_state)
     return model, history

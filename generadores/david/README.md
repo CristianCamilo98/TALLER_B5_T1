@@ -2,11 +2,14 @@
 
 Cuarto generador oficial del taller. Produce ventanas sinteticas en el espacio
 comun `global_channel_normalized` mediante un Normalizing Flow RealNVP con
-capas de acoplamiento afin.
+ActNorm aprendible, capas de acoplamiento afin y permutaciones fijas entre
+bloques.
 
 El modelo tiene arquitectura neuronal entrenable, optimizador Adam,
 checkpoint, likelihood bajo prior normal estandar y calculo exacto del
-log-det-Jacobian de cada transformacion invertible.
+log-det-Jacobian de cada transformacion invertible. El muestreo oficial usa
+rechazo determinista contra las restricciones fisicas NVDA, sin clipping ni
+reparacion de valores.
 
 ## Contrato
 
@@ -18,9 +21,11 @@ log-det-Jacobian de cada transformacion invertible.
 | Canales | `log_return`, `log_high_low_range`, `log1p_volume` |
 | Seed oficial | `42` |
 | Source model | `normalizing_flow` |
-| Arquitectura | RealNVP, affine coupling, MLP tanh |
+| Arquitectura | RealNVP, ActNorm, affine coupling, fixed permutations, MLP tanh |
 | Objetivo | negative log-likelihood |
 | Entrenamiento default | 10000 epochs, early stopping patience 200 |
+| Regularizacion default | Adam lr 5e-4, weight decay 5e-5 |
+| Sampling default | temperature 1.0, rechazo fisico determinista |
 | Output | `outputs/bootstrap_jitter_seed42_normalized.parquet` |
 
 El nombre del parquet oficial se conserva por compatibilidad con el pipeline

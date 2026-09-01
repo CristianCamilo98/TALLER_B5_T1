@@ -3,7 +3,12 @@
   "model_family": "normalizing_flow",
   "architecture": {
     "name": "RealNVP",
-    "transform": "affine_coupling",
+    "transform": "actnorm_affine_coupling_fixed_permutation",
+    "components": [
+      "learned_actnorm",
+      "affine_coupling",
+      "fixed_random_permutation"
+    ],
     "invertible": true,
     "uses_log_det_jacobian": true,
     "base_distribution": "standard_normal",
@@ -13,9 +18,11 @@
         96,
         96
       ],
-      "n_coupling_layers": 6,
+      "n_coupling_layers": 8,
       "scale_clip": 1.5,
       "init_scale": 0.04,
+      "use_actnorm": true,
+      "use_permutations": true,
       "seed": 42
     }
   },
@@ -25,19 +32,21 @@
     "training_config": {
       "epochs": 10000,
       "batch_size": 256,
-      "learning_rate": 0.0008,
-      "weight_decay": 1e-05,
+      "learning_rate": 0.0005,
+      "weight_decay": 5e-05,
       "validation_fraction": 0.1,
       "gradient_clip_norm": 25.0,
       "patience": 200,
       "min_delta": 1e-05,
       "seed": 42
     },
-    "final_full_donor_train_nll": 119.94935151328477,
-    "epochs_completed": 287,
-    "best_validation_nll": 139.1703078244066
+    "final_full_donor_train_nll": 116.36709419544655,
+    "epochs_completed": 323,
+    "best_epoch": 123,
+    "best_validation_nll": 137.68694734646385,
+    "stopping_reason": "early_stopping"
   },
-  "built_at_utc": "2026-09-01T07:10:21.306343+00:00",
+  "built_at_utc": "2026-09-01T17:00:09.319451+00:00",
   "seed": 42,
   "training_seed": 42,
   "space": "global_channel_normalized",
@@ -61,7 +70,7 @@
   "donor_train_path": "data/features/windows/donor_train.parquet",
   "donor_train_sha256": "28848c901d0c9e54182c52ab103a375eb067d9969cd3ec183c7550a6b1255939",
   "checkpoint_path": "generadores/david/artifacts/checkpoints/normalizing_flow_seed42.npz",
-  "checkpoint_sha256": "106f6fbf839c9cc5cec24ae94ab6690dec84eb38a3a65155a07c966f78ff74d9",
+  "checkpoint_sha256": "f4d8cc458bfb65e64dc00bccf165119f86a36eb634fcb668920a6ba0c9a53f72",
   "history_path": "generadores/david/artifacts/training_history_seed42.csv",
-  "history_sha256": "cda2684113f1bfcbb5aa196a0a2631cdfdc2dafb930a0579df0a9a58ec2e4f30"
+  "history_sha256": "8d1e7e8523b37b54fbe7130c7d8ee021874f635ae2883dc15757567f0440fd7b"
 }

@@ -108,6 +108,19 @@ def test_real_nvp_inverse_and_log_likelihood_are_well_defined():
     assert np.isfinite(model.log_prob(flat)).all()
 
 
+def test_real_nvp_uses_actnorm_and_fixed_permutations():
+    flow = load_flow_module()
+    config = flow.FlowConfig(input_dim=6, hidden_dims=(7,), n_coupling_layers=3, seed=99)
+    model = flow.RealNVP(config)
+
+    assert config.use_actnorm
+    assert config.use_permutations
+    assert len(model.actnorms) == 3
+    assert len(model.permutations) == 2
+    assert "actnorms.0.log_scale" in model.parameters()
+    assert not np.array_equal(model.permutations[0], np.arange(config.input_dim))
+
+
 def test_real_nvp_manual_gradient_matches_finite_difference():
     flow = load_flow_module()
     rng = np.random.default_rng(456)
@@ -136,6 +149,22 @@ def test_real_nvp_manual_gradient_matches_finite_difference():
 
     numeric = (plus - minus) / (2.0 * eps)
     assert grads[name][index] == pytest.approx(numeric, abs=1.0e-5)
+
+
+def test_real_nvp_loads_legacy_checkpoints_without_new_transforms():
+    flow = load_flow_module()
+    payload = {
+        "input_dim": 4,
+        "hidden_dims": [5],
+        "n_coupling_layers": 2,
+        "scale_clip": 1.5,
+        "init_scale": 0.03,
+        "seed": 456,
+    }
+    config = flow.FlowConfig.from_dict(payload)
+
+    assert not config.use_actnorm
+    assert not config.use_permutations
 
 
 def test_real_nvp_training_checkpoint_and_contract(tmp_path: Path):
@@ -200,6 +229,36 @@ def test_real_nvp_training_checkpoint_and_contract(tmp_path: Path):
     )
     report = validate_output(discovered, frame, expected_rows=4)
     assert report.contract_status == "PASS"
+
+
+def test_physical_rejection_sampling_is_deterministic_and_valid():
+    flow = load_flow_module()
+    generate = load_generate_module()
+    model = flow.RealNVP(flow.FlowConfig(hidden_dims=(4,), n_coupling_layers=2, seed=77))
+
+    windows, metadata = generate._sample_with_optional_rejection(
+        model,
+        n_windows=8,
+        seed=77,
+        temperature=0.5,
+        physical_rejection=True,
+        oversample_factor=1.25,
+        max_draws=64,
+    )
+    reproduced, reproduced_metadata = generate._sample_with_optional_rejection(
+        model,
+        n_windows=8,
+        seed=77,
+        temperature=0.5,
+        physical_rejection=True,
+        oversample_factor=1.25,
+        max_draws=64,
+    )
+    thresholds, _ = generate._nvda_normalized_physical_thresholds()
+
+    assert metadata == reproduced_metadata
+    np.testing.assert_array_equal(windows, reproduced)
+    assert generate._nvda_physical_valid_mask(windows, thresholds).all()
 
 
 def test_david_baseline_is_reproducible_with_seed42(tmp_path: Path):
