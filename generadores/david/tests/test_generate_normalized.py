@@ -6,12 +6,14 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CONTRACT_MODULE = REPO_ROOT / "common_pipeline" / "01_contract"
 SCRIPT_PATH = REPO_ROOT / "generadores" / "david" / "scripts" / "generate_normalized.py"
 EXPERIMENT_SCRIPT_PATH = REPO_ROOT / "generadores" / "david" / "scripts" / "experiment_normalized.py"
 PLOT_SCRIPT_PATH = REPO_ROOT / "generadores" / "david" / "scripts" / "plot_experiment_diagnostics.py"
+FLOW_MODULE_PATH = REPO_ROOT / "generadores" / "david" / "src" / "normalizing_flow.py"
 if str(CONTRACT_MODULE) not in sys.path:
     sys.path.insert(0, str(CONTRACT_MODULE))
 
@@ -61,6 +63,16 @@ def load_plot_module():
     return module
 
 
+def load_flow_module():
+    spec = importlib.util.spec_from_file_location("david_normalizing_flow", FLOW_MODULE_PATH)
+    assert spec is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
 def test_default_output_path_is_david_official_location():
     module = load_generate_module()
     assert module.DEFAULT_OUTPUT_PATH == (
@@ -72,15 +84,122 @@ def test_default_output_path_is_david_official_location():
     )
 
 
-def test_default_generator_is_temporal_jitter_improvement():
+def test_default_generator_is_normalizing_flow():
     module = load_generate_module()
 
-    assert module.OFFICIAL_SOURCE_MODEL == "temporal_jitter_0p40_rho0p85"
-    assert module.OFFICIAL_NOISE_SCALE == 0.40
-    assert module.OFFICIAL_RHO == 0.85
-    assert module.source_model_name(module.OFFICIAL_NOISE_SCALE, module.OFFICIAL_RHO) == (
-        module.OFFICIAL_SOURCE_MODEL
+    assert module.OFFICIAL_SOURCE_MODEL == "normalizing_flow"
+    assert module.DEFAULT_CHECKPOINT.name == "normalizing_flow_seed42.npz"
+
+
+def test_real_nvp_inverse_and_log_likelihood_are_well_defined():
+    flow = load_flow_module()
+    rng = np.random.default_rng(123)
+    model = flow.RealNVP(
+        flow.FlowConfig(hidden_dims=(8,), n_coupling_layers=2, init_scale=0.02, seed=123)
     )
+    values = rng.normal(size=(4, WINDOW_LENGTH, N_CHANNELS))
+    flat = flow.flatten_windows(values)
+
+    latent, forward_log_det = model.forward(flat)
+    recovered, inverse_log_det = model.inverse(latent)
+
+    np.testing.assert_allclose(recovered, flat, atol=1e-8)
+    np.testing.assert_allclose(forward_log_det + inverse_log_det, 0.0, atol=1e-8)
+    assert np.isfinite(model.log_prob(flat)).all()
+
+
+def test_real_nvp_manual_gradient_matches_finite_difference():
+    flow = load_flow_module()
+    rng = np.random.default_rng(456)
+    model = flow.RealNVP(
+        flow.FlowConfig(
+            input_dim=4,
+            hidden_dims=(5,),
+            n_coupling_layers=2,
+            init_scale=0.03,
+            seed=456,
+        )
+    )
+    values = rng.normal(size=(3, 4))
+    _, grads = model.loss_and_gradients(values)
+    params = model.parameters()
+    name = "layers.0.net.W0"
+    index = (0, 0)
+    original = float(params[name][index])
+    eps = 1.0e-5
+
+    params[name][index] = original + eps
+    plus = model.negative_log_likelihood(values)
+    params[name][index] = original - eps
+    minus = model.negative_log_likelihood(values)
+    params[name][index] = original
+
+    numeric = (plus - minus) / (2.0 * eps)
+    assert grads[name][index] == pytest.approx(numeric, abs=1.0e-5)
+
+
+def test_real_nvp_training_checkpoint_and_contract(tmp_path: Path):
+    flow = load_flow_module()
+    generate = load_generate_module()
+    rng = np.random.default_rng(321)
+    windows = rng.normal(size=(16, WINDOW_LENGTH, N_CHANNELS)).astype(np.float32)
+    flow_config = flow.FlowConfig(hidden_dims=(8,), n_coupling_layers=2, init_scale=0.02, seed=321)
+    training_config = flow.TrainingConfig(
+        epochs=2,
+        batch_size=4,
+        learning_rate=1.0e-3,
+        validation_fraction=0.25,
+        patience=2,
+        seed=321,
+    )
+
+    model, history = flow.train_real_nvp(
+        windows,
+        flow_config=flow_config,
+        training_config=training_config,
+    )
+    assert len(history) == 2
+    assert np.isfinite(history[-1]["validation_nll"])
+
+    checkpoint = tmp_path / "normalizing_flow_seed42.npz"
+    flow.save_checkpoint(
+        checkpoint,
+        model,
+        metadata={
+            "source_model": "normalizing_flow",
+            "training_seed": 42,
+            "architecture": {
+                "name": "RealNVP",
+                "uses_log_det_jacobian": True,
+                "flow_config": flow_config.to_dict(),
+            },
+            "training": {
+                "objective": "negative_log_likelihood",
+                "optimizer": "Adam",
+                "training_config": training_config.to_dict(),
+            },
+        },
+        history=history,
+    )
+    loaded, metadata, loaded_history = flow.load_checkpoint(checkpoint)
+    sampled = flow.sample_windows(loaded, n_windows=4, seed=42)
+    frame = generate.make_canonical_frame(sampled)
+    output_path = tmp_path / "david.parquet"
+    frame.to_parquet(output_path, index=False)
+
+    assert metadata["source_model"] == "normalizing_flow"
+    assert loaded_history == history
+    assert frame["source_model"].eq("normalizing_flow").all()
+    discovered = DiscoveredOutput(
+        generator_id="david",
+        path=output_path,
+        filename=output_path.name,
+        rows=len(frame),
+        sha256=sha256_file(output_path),
+        columns=tuple(frame.columns),
+    )
+    report = validate_output(discovered, frame, expected_rows=4)
+    assert report.contract_status == "PASS"
 
 
 def test_david_baseline_is_reproducible_with_seed42(tmp_path: Path):
@@ -154,6 +273,18 @@ def test_experimental_candidates_stay_outside_official_outputs():
 
     assert official_outputs_dir not in module.EXPERIMENT_OUTPUTS_DIR.parents
     assert module.OFFICIAL_OUTPUT.parent == official_outputs_dir
+
+
+def test_historical_experiment_cannot_promote_temporal_jitter():
+    module = load_experiment_module()
+    windows = np.zeros((2, WINDOW_LENGTH, N_CHANNELS), dtype=np.float32)
+
+    with pytest.raises(RuntimeError, match="Deprecated temporal-jitter"):
+        module.write_official_output(
+            windows,
+            source_model="temporal_jitter_0p40_rho0p85",
+            selected_from="unit-test",
+        )
 
 
 def test_experimental_candidate_frame_uses_canonical_contract():

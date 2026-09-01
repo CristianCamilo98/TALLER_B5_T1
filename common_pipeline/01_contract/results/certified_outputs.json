@@ -10,7 +10,7 @@
       "source_model": "bootstrap_jitter",
       "source_directory": "common_pipeline/01_contract",
       "path": "common_pipeline/01_contract/outputs/bootstrap_jitter_seed42_normalized.parquet",
-      "sha256": "846a6e2306922704e8dec39445bed0f2a9b146fd57dd793efe0f647a499395fe",
+      "sha256": "412bdc0b147e68f956f0924226a5e326a9267822016c4c6395156f63d8cdabe3",
       "rows": 5000,
       "logical_shape": [
         5000,
@@ -94,10 +94,10 @@
     {
       "method_id": "david",
       "method_family": "neural_generator",
-      "source_model": "temporal_jitter_0p40_rho0p85",
+      "source_model": "normalizing_flow",
       "source_directory": "generadores/david",
       "path": "generadores/david/outputs/bootstrap_jitter_seed42_normalized.parquet",
-      "sha256": "0cf9be5d106783b62248b7b56f942ea121ef113640216eb8ba3b2889ba2230bf",
+      "sha256": "bf83a3163b86eeba9ac50853f98749018b3cc121b9919027b07842324eed2976",
       "rows": 5000,
       "logical_shape": [
         5000,
@@ -116,9 +116,9 @@
       "features_flat_length": 195,
       "normalization_status": "NORMALIZATION_NUMERICALLY_MATCHES",
       "contract_status": "PASS",
-      "donor_lineage_status": "NON_CANONICAL",
+      "donor_lineage_status": "CANONICAL",
       "expected_role": "normalizing_flow",
-      "official_role_status": "WRONG_ROLE"
+      "official_role_status": "PASS"
     },
     {
       "method_id": "marco",

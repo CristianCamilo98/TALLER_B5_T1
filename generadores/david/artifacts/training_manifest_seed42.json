@@ -2,46 +2,47 @@
   "source_model": "normalizing_flow",
   "model_family": "normalizing_flow",
   "architecture": {
+    "name": "RealNVP",
+    "transform": "affine_coupling",
+    "invertible": true,
+    "uses_log_det_jacobian": true,
     "base_distribution": "standard_normal",
     "flow_config": {
+      "input_dim": 195,
       "hidden_dims": [
         96,
         96
       ],
-      "init_scale": 0.04,
-      "input_dim": 195,
       "n_coupling_layers": 6,
       "scale_clip": 1.5,
+      "init_scale": 0.04,
       "seed": 42
-    },
-    "invertible": true,
-    "name": "RealNVP",
-    "transform": "affine_coupling",
-    "uses_log_det_jacobian": true
+    }
   },
   "training": {
-    "best_validation_nll": 139.1703078244066,
-    "epochs_completed": 287,
-    "final_full_donor_train_nll": 119.94935151328477,
     "objective": "negative_log_likelihood",
     "optimizer": "Adam",
     "training_config": {
-      "batch_size": 256,
       "epochs": 10000,
-      "gradient_clip_norm": 25.0,
+      "batch_size": 256,
       "learning_rate": 0.0008,
-      "min_delta": 1e-05,
-      "patience": 200,
-      "seed": 42,
+      "weight_decay": 1e-05,
       "validation_fraction": 0.1,
-      "weight_decay": 1e-05
-    }
+      "gradient_clip_norm": 25.0,
+      "patience": 200,
+      "min_delta": 1e-05,
+      "seed": 42
+    },
+    "final_full_donor_train_nll": 119.94935151328477,
+    "epochs_completed": 287,
+    "best_validation_nll": 139.1703078244066
   },
-  "algorithm": "RealNVP affine coupling normalizing flow",
+  "built_at_utc": "2026-09-01T07:10:21.306343+00:00",
   "seed": 42,
   "training_seed": 42,
-  "sampling_temperature": 1.0,
   "space": "global_channel_normalized",
+  "window_length": 65,
+  "n_channels": 3,
   "channel_order": [
     "log_return",
     "log_high_low_range",
@@ -61,14 +62,6 @@
   "donor_train_sha256": "28848c901d0c9e54182c52ab103a375eb067d9969cd3ec183c7550a6b1255939",
   "checkpoint_path": "generadores/david/artifacts/checkpoints/normalizing_flow_seed42.npz",
   "checkpoint_sha256": "106f6fbf839c9cc5cec24ae94ab6690dec84eb38a3a65155a07c966f78ff74d9",
-  "checkpoint_training_seed": 42,
-  "checkpoint_history_rows": 287,
-  "n_windows": 5000,
-  "logical_shape": [
-    5000,
-    65,
-    3
-  ],
-  "parquet_sha256": "bf83a3163b86eeba9ac50853f98749018b3cc121b9919027b07842324eed2976",
-  "built_at_utc": "2026-09-01T07:10:41.546572+00:00"
+  "history_path": "generadores/david/artifacts/training_history_seed42.csv",
+  "history_sha256": "cda2684113f1bfcbb5aa196a0a2631cdfdc2dafb930a0579df0a9a58ec2e4f30"
 }

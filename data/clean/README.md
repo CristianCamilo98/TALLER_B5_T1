@@ -11,8 +11,9 @@ Reglas:
 - volumen debe ser no negativo; `Volume=0` es válido;
 - cobertura mínima por ticker: 95 %.
 
-En el snapshot actual las siete diferencias OHLC de orden `1e-15` quedan
-correctamente aceptadas y no hay violaciones materiales. Resultado:
+En el snapshot actual las diferencias OHLC de orden `1e-15` registradas en
+`quality_report.csv` quedan correctamente aceptadas y no hay violaciones
+materiales. Resultado:
 38.720 → 38.720 filas.
 
 Artefactos: `ohlcv_clean.parquet`, `ohlcv_clean.csv`, `quality_report.csv`,

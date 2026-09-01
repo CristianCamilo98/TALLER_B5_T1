@@ -1,6 +1,6 @@
 # Common Core Certification — Synthetic NVDA
 
-Fecha de certificación: 2026-08-27
+Fecha de recertificación local: 2026-09-01
 Protocolo: `common-core-1.0.0`
 Rama: `feature/common-protocol-realignment`
 
@@ -13,7 +13,7 @@ Ridge y cualquier evaluación downstream.
 ## Evidencia del snapshot
 
 - Raw: 38.720 filas, 11 tickers, 0 duplicados y 0 NaN OHLCV.
-- Clean: 38.720 filas; 7 bordes flotantes aceptados; 0 violaciones materiales.
+- Clean: 38.720 filas; 6 bordes flotantes aceptados; 0 violaciones materiales.
 - `log1p_volume` mantiene la fila AMD 2015-01-02 con volumen cero.
 - Las features se reinician dentro de cada bloque diario.
 

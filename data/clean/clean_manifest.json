@@ -1,11 +1,11 @@
 {
   "data_version": "clean-0.2.0",
   "protocol_version": "common-core-1.0.0",
-  "built_at_utc": "2026-08-27T16:36:31.184796+00:00",
+  "built_at_utc": "2026-09-01T06:19:15.548013+00:00",
   "config_path": "configs/experiment.yaml",
-  "config_sha256": "7b105c539879e381e608c1d6f91d11e59c5832cd00c577994bb709e965dfa622",
+  "config_sha256": "caea53c079353cb8854434364d0f67a4cf195e5c05f5f10c9f1958f3eeacd639",
   "input_path": "data/raw/ohlcv_raw.parquet",
-  "input_snapshot_sha256_verified": "6ecd4c929ecd3bdca32c646aec8210a7757b566843a90102f21bd86d2da036d6",
+  "input_snapshot_sha256_verified": "69f69db6d6efc490945881615eb7297ee82e57320ba8658395214e02be5bec5e",
   "checksum_policy": "Input verified against its current manifest, not a hardcoded hash.",
   "ohlc_tolerance": {
     "absolute": 1e-10,
@@ -14,7 +14,7 @@
   "rows_in": 38720,
   "rows_out": 38720,
   "dropped_nan": 0,
-  "strict_float_edge_rows_rescued": 7,
+  "strict_float_edge_rows_rescued": 6,
   "dropped_material_ohlc_invariant": 0,
   "ticker_coverage": {
     "ADI": 1.0,
@@ -58,8 +58,8 @@
     "format": "long"
   },
   "checksums_sha256": {
-    "data/clean/ohlcv_clean.parquet": "2e9da1ab9f8f58521fdfbdcc91daf05bb8720e9a865bab3f359fd819a23ffdb2",
-    "data/clean/ohlcv_clean.csv": "4e8cef279d99ecffc24166d477e766abc2237dab97984e475dbd9cef0b14ed27",
-    "data/clean/quality_report.csv": "83532cc2286bc3b3ffb1e0fa71de0bae701b5201c788102fae280860b4fdaefd"
+    "data/clean/ohlcv_clean.parquet": "0c9e6ecfc5b1bd02227ee87734d242821ee67d6ed0ac0f34a65df1bc34552073",
+    "data/clean/ohlcv_clean.csv": "f2a935a8bd81c068b1d1bd707f9f590b8d98ee609b9279686708e73a62105f6b",
+    "data/clean/quality_report.csv": "8ae4e732365f191e39e0ebd0cee5b76546821abf355d7dc736dc7781f660fc65"
   }
 }

@@ -1,1 +1,1 @@
-"""David's normalized bootstrap-jitter generator."""
+"""David's normalized RealNVP Normalizing Flow generator."""
