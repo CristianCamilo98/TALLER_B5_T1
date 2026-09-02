@@ -34,8 +34,8 @@
     },
     {
       "generator": "david",
-      "file": "bootstrap_jitter_seed42_normalized.parquet",
-      "sha256": "0cf9be5d106783b62248b7b56f942ea121ef113640216eb8ba3b2889ba2230bf",
+      "file": "normalizing_flow_seed42_normalized.parquet",
+      "sha256": "f36fe7ee5b79400a1567446e038fb21723e5a4b973c224c32f5a945dc66219ed",
       "rows": 5000,
       "logical_shape": "(5000,65,3)",
       "training_seed": 42,
