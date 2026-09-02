@@ -1,0 +1,17 @@
+fidelity_metric,utility_target,n,pearson_r,pearson_p_value,spearman_rho,spearman_p_value,exploratory_only,statistical_inference
+c2st_roc_auc,best_rmse_improvement_pct,5,-0.925687352862,0.0240451102927,-0.4,0.504631575469,True,False
+c2st_roc_auc,mean_rmse_improvement_across_ratios,5,-0.913289496724,0.030248970772,-0.2,0.747060078105,True,False
+mean_correlation_error,best_rmse_improvement_pct,5,0.542075919623,0.345282460411,0.8,0.104088038662,True,False
+mean_correlation_error,mean_rmse_improvement_across_ratios,5,0.216483791273,0.726532625573,0.1,0.87288857157,True,False
+nearest_neighbor_mean,best_rmse_improvement_pct,5,0.310062416369,0.6116364443,0.8,0.104088038662,True,False
+nearest_neighbor_mean,mean_rmse_improvement_across_ratios,5,0.150123722221,0.809576958066,0.1,0.87288857157,True,False
+wasserstein_log_return,best_rmse_improvement_pct,5,-0.977718526959,0.00397917332563,-0.6,0.284756979865,True,False
+wasserstein_log_return,mean_rmse_improvement_across_ratios,5,-0.947929395413,0.0141514622397,0,1,True,False
+wasserstein_log_high_low_range,best_rmse_improvement_pct,5,-0.684715983476,0.202161498738,-0.7,0.188120404374,True,False
+wasserstein_log_high_low_range,mean_rmse_improvement_across_ratios,5,-0.447111981774,0.450300578789,-0.1,0.87288857157,True,False
+wasserstein_log1p_volume,best_rmse_improvement_pct,5,0.0126481158327,0.98389634814,0.1,0.87288857157,True,False
+wasserstein_log1p_volume,mean_rmse_improvement_across_ratios,5,-0.332390634138,0.584714648016,-0.8,0.104088038662,True,False
+return_acf_mae_vs_real,best_rmse_improvement_pct,5,-0.968103336066,0.00680554483701,-0.1,0.87288857157,True,False
+return_acf_mae_vs_real,mean_rmse_improvement_across_ratios,5,-0.987482695302,0.0016779653262,-0.7,0.188120404374,True,False
+abs_return_acf_mae_vs_real,best_rmse_improvement_pct,5,-0.991692362132,0.000907837794537,-0.9,0.0373860734685,True,False
+abs_return_acf_mae_vs_real,mean_rmse_improvement_across_ratios,5,-0.886437609831,0.0451487705216,-0.3,0.623837664781,True,False
