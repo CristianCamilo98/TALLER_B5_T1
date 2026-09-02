@@ -1,0 +1,87 @@
+{
+  "source_model": "normalizing_flow",
+  "model_family": "normalizing_flow",
+  "owner": "david",
+  "architecture": {
+    "name": "RealNVP",
+    "transform": "actnorm_affine_coupling_fixed_permutation",
+    "components": [
+      "learned_actnorm",
+      "affine_coupling",
+      "fixed_random_permutation"
+    ],
+    "invertible": true,
+    "uses_log_det_jacobian": true,
+    "base_distribution": "standard_normal",
+    "flow_config": {
+      "input_dim": 195,
+      "hidden_dims": [
+        96,
+        96
+      ],
+      "n_coupling_layers": 8,
+      "scale_bound": 1.5,
+      "init_scale": 0.04,
+      "use_actnorm": true,
+      "use_permutations": true,
+      "seed": 42
+    },
+    "parameter_count": 530784
+  },
+  "training": {
+    "objective": "negative_log_likelihood",
+    "optimizer": "Adam",
+    "training_config": {
+      "epochs": 10000,
+      "batch_size": 256,
+      "learning_rate": 0.0005,
+      "weight_decay": 5e-05,
+      "validation_fraction": 0.1,
+      "gradient_norm_limit": 25.0,
+      "patience": 200,
+      "min_delta": 1e-05,
+      "seed": 42
+    },
+    "training_split": "donor_train",
+    "validation_split": "donor_validation",
+    "selection_metric": "donor_validation_negative_log_likelihood",
+    "final_full_donor_train_nll": 121.64458302067462,
+    "final_donor_validation_nll": 178.86906998378228,
+    "epochs_completed": 289,
+    "best_epoch": 89,
+    "best_validation_nll": 178.86906998378228,
+    "stopping_reason": "early_stopping"
+  },
+  "built_at_utc": "2026-09-02T16:16:23.024773+00:00",
+  "seed": 42,
+  "training_seed": 42,
+  "space": "global_channel_normalized",
+  "window_length": 65,
+  "n_channels": 3,
+  "channel_order": [
+    "log_return",
+    "log_high_low_range",
+    "log1p_volume"
+  ],
+  "mean": [
+    0.0008114289710088066,
+    0.02602580514891484,
+    16.06027218135258
+  ],
+  "std": [
+    0.023515504591060377,
+    0.01672428879172832,
+    1.0933253360280637
+  ],
+  "donor_train_path": "data/features/windows/donor_train.parquet",
+  "donor_train_sha256": "5f1e33f69b02bad86d89dcc2f67a1018cef68aaeacfbf72c310a1b7902fc268f",
+  "donor_validation_path": "data/features/windows/donor_validation.parquet",
+  "donor_validation_sha256": "134f51a2ac9e546bf1a2f21f4efbf56a62bf019a08de14209058563b0a88ae23",
+  "git_commit": "c043119841c7cc7fcecec48dbf7b478c046e3261",
+  "checkpoint_path": "generadores/david/artifacts/checkpoints/normalizing_flow_seed42.npz",
+  "checkpoint_sha256": "d2a9480f0017a4b8780124771f864f0f85f284e5f8d46566e4754821acea3b25",
+  "history_path": "generadores/david/artifacts/loss_history.csv",
+  "history_sha256": "ba04bda9270eed55451383a26ac867a55ffbb440afae7feadb851d46fab1a9ec",
+  "convergence_figure_path": "generadores/david/artifacts/normalizing_flow_convergence.png",
+  "convergence_figure_sha256": "739ab649eb8621cb2be427819645119d02d8427e54c0d55ecc3b6e91a44b4770"
+}
