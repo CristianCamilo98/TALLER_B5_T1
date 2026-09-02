@@ -10,6 +10,29 @@ El DDPM se entrena exclusivamente con datos de empresas donantes. **NVDA no inte
 
 Responsable de implementación: Daniel.
 
+## DDPM at a glance
+
+| Elemento | Valor |
+|---|---:|
+| Ventanas donantes de entrenamiento | 4.910 |
+| Shape por ventana | `65 × 3` |
+| Parámetros entrenables | 336.259 |
+| Diffusion timesteps | 100 |
+| Pool sintético oficial | 5.000 ventanas |
+| Mejor RMSE observado | 0.2446 |
+| Mejor synthetic share observado | 75% |
+| Mejora RMSE frente a `REAL_ONLY` | 83,47% |
+
+## Navegación
+
+- [Papel y contrato experimental](#papel-en-el-experimento)
+- [DDPM y arquitectura](#concepto-ddpm)
+- [Entrenamiento y evidencia](#configuración-de-entrenamiento)
+- [Generación sintética](#generación-sintética)
+- [Fidelity y downstream utility](#fidelity--strict_final)
+- [Limitaciones](#limitaciones)
+- [Reproducibilidad y ejecución](#reproducibilidad-y-provenance)
+
 ## Papel en el experimento
 
 ```mermaid
@@ -172,6 +195,8 @@ La configuración congelada está en [`config/diffusion.yaml`](config/diffusion.
 | Device registrado | CPU en los tres training manifests |
 | Entorno registrado | Python `3.14.3`, PyTorch `2.13.0+cpu` |
 
+Estas versiones describen dos referencias distintas: **Python 3.12** es el entorno de referencia documentado para la entrega, mientras que **Python 3.14.3 con PyTorch 2.13.0+cpu** es el entorno de ejecución registrado en los manifests congelados del entrenamiento DDPM. Ambos datos se conservan para separar la recomendación de reproducción de la provenance histórica.
+
 La validation loss se calcula sin gradientes, sin shuffle y sin pasos del optimizer. El checkpoint `best_model.pt` se actualiza únicamente cuando mejora esa validation loss; `last_model.pt` no es el modelo seleccionado para generación.
 
 ## Evidencia de entrenamiento
@@ -219,14 +244,14 @@ En fidelity, “real held-out donors” significa las **380 ventanas de `donor_v
 
 | Métrica DDPM | Resultado STRICT_FINAL |
 |---|---:|
-| C2ST ROC-AUC | `0.907015` |
-| Wasserstein — `log_return` | `0.308172` |
-| Wasserstein — `log_high_low_range` | `0.589615` |
-| Wasserstein — `log1p_volume` | `0.492661` |
-| Mean correlation error | `0.080053` |
-| Return ACF MAE | `0.039155` |
-| Abs-return ACF MAE | `0.028037` |
-| Nearest-neighbour mean / median | `10.701458` / `10.712345` |
+| C2ST ROC-AUC | `0.9070` |
+| Wasserstein — `log_return` | `0.3082` |
+| Wasserstein — `log_high_low_range` | `0.5896` |
+| Wasserstein — `log1p_volume` | `0.4927` |
+| Mean correlation error | `0.0801` |
+| Return ACF MAE | `0.0392` |
+| Abs-return ACF MAE | `0.0280` |
+| Nearest-neighbour mean / median | `10.7015` / `10.7123` |
 
 El DDPM es el método más cercano al real en Wasserstein para `log_return`, Wasserstein para `log_high_low_range` y abs-return ACF MAE. No lidera todas las métricas: presenta el mayor error de correlación y la mayor distancia Wasserstein en volumen entre los métodos comparados. Fidelity y downstream utility responden a preguntas distintas.
 
@@ -246,9 +271,9 @@ El protocolo común mantiene todo lo demás fijo:
 
 | Synthetic share | Ventanas sintéticas | RMSE mean | RMSE SD | MAE mean | MAE SD | Mejora RMSE vs REAL_ONLY |
 |---:|---:|---:|---:|---:|---:|---:|
-| 25% | 21 | `0.309787` | `0.034746` | `0.229393` | `0.032008` | `79.062549%` |
-| 50% | 62 | `0.309301` | `0.063834` | `0.242643` | `0.068618` | `79.095423%` |
-| 75% | 186 | **`0.244600`** | **`0.007319`** | **`0.179606`** | **`0.011175`** | **`83.468303%`** |
+| 25% | 21 | `0.309787` | `0.034746` | `0.229393` | `0.032008` | `79.06%` |
+| 50% | 62 | `0.309301` | `0.063834` | `0.242643` | `0.068618` | `79.10%` |
+| 75% | 186 | **`0.244600`** | **`0.007319`** | **`0.179606`** | **`0.011175`** | **`83.47%`** |
 
 DDPM @75% es la **mejor configuración observada post-hoc por RMSE** en el experimento. Es una descripción del resultado congelado, no una configuración “óptima” ni una regla de selección para datos futuros.
 
@@ -264,9 +289,9 @@ La comparación contra el método simple forma parte del diseño experimental. U
 
 | Synthetic share | RMSE Bootstrap + Jitter | RMSE DDPM | Diferencia de mejora RMSE | Lectura |
 |---:|---:|---:|---:|---|
-| 25% | `0.285467` | `0.309787` | `-1.643714 pp` | DDPM no supera al baseline simple |
-| 50% | `0.284047` | `0.309301` | `-1.706810 pp` | DDPM no supera al baseline simple |
-| 75% | `0.262744` | **`0.244600`** | **`+1.226262 pp`** | DDPM supera al baseline simple |
+| 25% | `0.285467` | `0.309787` | `-1.64 pp` | DDPM no supera al baseline simple |
+| 50% | `0.284047` | `0.309301` | `-1.71 pp` | DDPM no supera al baseline simple |
+| 75% | `0.262744` | **`0.244600`** | **`+1.23 pp`** | DDPM supera al baseline simple |
 
 ![Modelos neuronales frente a Bootstrap + Jitter](../../reports/final_analysis/figures/github/neural_vs_simple_baseline.png)
 
@@ -285,7 +310,7 @@ Fuente: [`seed_stability.csv`](../../reports/final_analysis/seed_stability.csv).
 ## Hallazgos principales
 
 1. DDPM @75% obtiene el mejor RMSE global observado: `0.244600`.
-2. Esa configuración mejora el RMSE un `83.468303%` frente a `REAL_ONLY`.
+2. Esa configuración mejora el RMSE un `83.47%` frente a `REAL_ONLY`.
 3. El DDPM no supera a Bootstrap + Jitter al 25% ni al 50%; sólo lo supera al 75%.
 4. DDPM @50% presenta la mayor variabilidad downstream del experimento (`rmse_std = 0.063834`).
 5. DDPM @75% es mucho más estable (`rmse_std = 0.007319`) que sus configuraciones de menor ratio.
@@ -327,7 +352,7 @@ Todos los comandos se ejecutan desde la raíz del repositorio.
 
 ### Instalar dependencias DDPM
 
-Python 3.12 es la versión de referencia documentada para la entrega. PyTorch se instala sólo para trabajar con el DDPM:
+Python 3.12 es la versión de referencia documentada para la entrega. Los manifests congelados del entrenamiento registran Python 3.14.3 y PyTorch 2.13.0+cpu; no se modifican para equipararlos al entorno recomendado. PyTorch se instala sólo para trabajar con el DDPM:
 
 ```bash
 python -m pip install -r requirements.txt
@@ -344,9 +369,9 @@ python generadores/daniel/scripts/train.py --seed 123
 python generadores/daniel/scripts/train.py --seed 2026
 ```
 
-### Generar los pools congelados
+### Regeneración local de pools DDPM
 
-Este paso requiere los checkpoints y manifests locales producidos por training. Genera el pool normalizado y su pareja calibrada a NVDA asociados a cada seed; no sustituye al common pipeline:
+Este paso requiere los checkpoints y manifests locales producidos por training. El script reconstruye pools NPZ locales desde el DDPM congelado: primero realiza reverse diffusion en el espacio normalizado y después genera la pareja calibrada con las estadísticas de `NVDA_visible`. Esa calibración es posterior al generador y no participa en el training ni en la selección del checkpoint. La utilidad no sustituye a `common_pipeline` ni reescribe el Parquet oficial común:
 
 ```bash
 python generadores/daniel/scripts/generate_final_pools.py --seed 42
@@ -354,7 +379,7 @@ python generadores/daniel/scripts/generate_final_pools.py --seed 123
 python generadores/daniel/scripts/generate_final_pools.py --seed 2026
 ```
 
-El Parquet oficial seed 42 ya está versionado en [`outputs/`](outputs/) y puede inspeccionarse sin ejecutar esos comandos.
+El output normalizado oficial común es [`outputs/diffusion_seed42_normalized.parquet`](outputs/diffusion_seed42_normalized.parquet) y puede inspeccionarse sin ejecutar esos comandos.
 
 ### Tests
 
