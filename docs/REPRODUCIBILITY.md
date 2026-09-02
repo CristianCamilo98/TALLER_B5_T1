@@ -35,9 +35,10 @@ For generator-specific work, install the root requirements first and then the ow
 ```bash
 python -m pip install -r generadores/cristian/requirements.txt  # TensorFlow / WGAN-GP
 python -m pip install -r generadores/daniel/requirements.txt    # PyTorch / DDPM
+python -m pip install -r generadores/david/requirements.txt     # NumPy-only / Normalizing Flow
 ```
 
-At this repository revision Marco and David do not have a tracked generator-specific requirements file. Do not infer their final framework dependencies from the root environment; their owners must publish those requirements with their final generator branches.
+At this repository revision Marco does not have a tracked generator-specific requirements file. Do not infer Marco's final framework dependencies from the root environment.
 
 ## Canonical data
 
@@ -101,6 +102,31 @@ python -m common_pipeline.03_utility.plot_utility
 python -m common_pipeline.03_utility.interpretation_summary
 ```
 
+`STRICT_FINAL` has been completed: phase 01 certifies all four official roles (WGAN-GP, DDPM, VAE, Normalizing Flow) plus the common simple baseline at commit `2bef27364907d9ae8e01b4bfea1673749a1d8488`, and phases 02 and 03 have each been run exactly once against that certified registry. The frozen scientific state is tagged `strict-final-20260902` (commit `d5b702269b0b28d7fcf965ac1e1659299402ec1f`).
+
+Re-running the commands above regenerates the same kind of local runtime outputs described below; it does not change or supersede the tagged, tracked result snapshot.
+
+### Runtime results vs. the tracked final snapshot
+
+Running phases 02 and 03 writes to local, mostly gitignored runtime locations:
+
+- `common_pipeline/02_fidelity/results/` — manifest, tables and figures for the most recent fidelity run (tables/figures/manifest are gitignored).
+- `common_pipeline/03_utility/results/runs/<run_id>/` — one isolated, content-addressed directory per utility run (fully gitignored); `<run_id>` defaults to `utility_<certified-registry-sha256[:12]>`.
+
+These runtime directories are not present, or are empty, in a fresh clone, and re-running the commands overwrites their previous content in place.
+
+The **authoritative, tracked, byte-exact copy of the STRICT_FINAL results** is versioned separately and is present in a fresh clone:
+
+```
+artifacts/final/strict_final_20260902/
+├── MANIFEST.json      # SHA256 of every copied file, source path, provenance
+├── README.md
+├── fidelity/          # copy of the STRICT_FINAL 02 tables, figures, manifest
+└── utility/           # copy of the STRICT_FINAL 03 tables, figures, manifest (run utility_7308c264cbd0)
+```
+
+Use `artifacts/final/strict_final_20260902/` to inspect the final numbers without running anything. Use the runtime locations above only when actually re-executing phases 02/03 locally.
+
 ### PROVISIONAL_PARTIAL
 
 Partial execution is integration evidence only, never a final result. It selects satisfied official roles plus the common baseline and excludes wrong-role outputs. Run phase 01 first, then explicitly opt in at the selection entry points:
@@ -134,7 +160,9 @@ Training is separate from delivery-level common-pipeline reproduction:
 - do not retrain merely to inspect a tracked official output;
 - checkpoints and large intermediate pools are not required by phases 01/02/03.
 
-Daniel's DDPM has tracked lightweight evidence under `generadores/daniel/evidence/`: histories, manifests, normalizer provenance, checkpoint SHA256 identities, the effective configuration and a convergence figure. The checkpoint binaries and redundant NPZ pools remain local/ignored. Equivalent final evidence and dependency declarations for the other owners must be assessed after their active branches are merged.
+Cristian's WGAN-GP and Daniel's DDPM have tracked lightweight evidence under `generadores/cristian/evidence/` and `generadores/daniel/evidence/`: histories, manifests, normalizer/provenance, checkpoint SHA256 identities, the effective configuration and a convergence figure. David's Normalizing Flow has equivalent tracked evidence directly under `generadores/david/artifacts/` (checkpoint, loss history, training manifest, convergence figure) plus a dedicated integrity test. The checkpoint binaries and redundant NPZ pools remain local/ignored for all owners. Marco does not yet have an equivalent tracked evidence folder at this revision.
+
+In the full development environment used to produce and certify the STRICT_FINAL run (root requirements plus every generator's own requirements installed), `python -m pytest -q` reports 149 passed tests.
 
 ## Clean-clone capability
 
@@ -156,6 +184,6 @@ Daniel's DDPM has tracked lightweight evidence under `generadores/daniel/evidenc
 - The exact raw snapshot is local/ignored. Network reconstruction may produce a different lineage.
 - Historical root certification tests that inspect the clean panel, daily split assignments or daily feature table still require those local ignored intermediates; common phases 01/02/03 and their tests use the five tracked canonical inputs.
 - TensorFlow and PyTorch are deliberately absent from root requirements, so a root-only environment does not run framework-specific generator tests or training.
-- Marco and David have no tracked generator-specific requirements at this revision; their active branches must close that gap without changing the root common environment.
+- Marco has no tracked generator-specific requirements file at this revision.
 - Large checkpoints and redundant training pools are not versioned. Lightweight evidence and hashes are sufficient for inspecting frozen outputs, but full training/sampling replay may require owner-held artifacts.
-- `STRICT_FINAL` remains unavailable until phase 01 certifies all four final official roles and the common baseline at the same commit.
+- `STRICT_FINAL` has been completed (see above); this document does not claim bit-exact retraining reproducibility for any generator beyond what each owner's evidence explicitly documents.

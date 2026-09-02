@@ -1,5 +1,9 @@
 # Common Core Certification — Synthetic NVDA
 
+> **HISTORICAL** — Common data-layer certification performed before the
+> final generative-model experiment. The authoritative final experiment
+> snapshot is `artifacts/final/strict_final_20260902/`.
+
 Fecha de certificación: 2026-08-27
 Protocolo: `common-core-1.0.0`
 Rama: `feature/common-protocol-realignment`

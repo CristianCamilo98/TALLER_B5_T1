@@ -1,5 +1,17 @@
 # Taller B5-T1 — Synthetic NVDA Common Core
 
+## Final project status
+
+- **Experimental phase: COMPLETE.**
+- 4 neural generators (WGAN-GP, DDPM, TimeVAE, Normalizing Flow) + 1 simple baseline (Bootstrap + Jitter), all certified by phase 01.
+- `STRICT_FINAL` common pipeline run (01 contract → 02 fidelity → 03 utility) completed.
+- Authoritative final results: [`artifacts/final/strict_final_20260902/`](artifacts/final/strict_final_20260902/README.md).
+- Frozen scientific tag: `strict-final-20260902`.
+- Common pipeline overview: [`common_pipeline/README.md`](common_pipeline/README.md).
+
+The remainder of this README still contains historical/common-core
+documentation and will be consolidated in the final delivery documentation.
+
 Guía de entorno, datos y ejecución desde un clone: [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md).
 
 Common core certificado para el experimento de ampliación sintética de NVDA.
@@ -75,7 +87,7 @@ están íntegramente dentro de 2023-01-03..2025-12-31.
 | Features | `data/features/daily_features_by_split.parquet` |
 | Ventanas | `data/features/windows/{split}.parquet` |
 | Test común | `data/features/test_index.parquet` |
-| Certificación | `COMMON_CORE_CERTIFICATION.md`, `tests/` |
+| Certificación | `docs/history/COMMON_CORE_CERTIFICATION.md`, `tests/` |
 
 Los artefactos globales pre-realineación se conservan localmente, fuera del
 pipeline canónico, en `data/legacy_pre_realignment/`.
@@ -103,4 +115,4 @@ nuevo linaje de manifests.
 ## Estado
 
 Common core `CERTIFIED` para el snapshot observado. La evidencia exacta y las condiciones de
-certificación están en [`COMMON_CORE_CERTIFICATION.md`](COMMON_CORE_CERTIFICATION.md).
+certificación están en [`docs/history/COMMON_CORE_CERTIFICATION.md`](docs/history/COMMON_CORE_CERTIFICATION.md).
