@@ -1,0 +1,34 @@
+{
+  "type": "global_channel_zscore",
+  "scope": "all donor_train windows and sessions",
+  "fit_split": "donor_train",
+  "channels": [
+    "log_return",
+    "log_high_low_range",
+    "log1p_volume"
+  ],
+  "fit_axes": [
+    0,
+    1
+  ],
+  "ddof": 0,
+  "fit_dtype": "float64",
+  "output_dtype": "float32",
+  "std_threshold": 1e-08,
+  "zero_variance_policy": "replace sigma with 1.0 when sigma < threshold",
+  "mean": [
+    0.0008114289710088066,
+    0.02602580514891484,
+    16.06027218135258
+  ],
+  "raw_std": [
+    0.023515504591060377,
+    0.01672428879172832,
+    1.0933253360280637
+  ],
+  "std": [
+    0.023515504591060377,
+    0.01672428879172832,
+    1.0933253360280637
+  ]
+}

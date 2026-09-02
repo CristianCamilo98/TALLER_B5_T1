@@ -1,0 +1,8 @@
+{
+  "training_seed": 123,
+  "checkpoint_binaries_tracked": false,
+  "best_epoch": 12,
+  "best_validation_loss": 0.5567662715911865,
+  "best_checkpoint_sha256": "aa2396936ba98188113195fef40344aafdc28abf468f6df26e9c551fd6377f84",
+  "last_checkpoint_sha256": "e46d3e3deef56b06e67a7ab0407a2241716dfe29d06e8afc3b3bf52b4ba6b8fd"
+}

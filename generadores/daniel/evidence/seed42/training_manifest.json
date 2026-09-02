@@ -1,0 +1,149 @@
+{
+  "run_id": "diffusion_seed42_global_channel",
+  "model": "diffusion",
+  "model_config": {
+    "type": "ddpm_temporal_1d",
+    "input_length": 65,
+    "input_channels": 3,
+    "base_channels": 64,
+    "time_embedding_dim": 128
+  },
+  "seed": 42,
+  "training_seed": 42,
+  "validation_seed": 424242,
+  "git_commit": "85a0b61eec0005b1c90902f21b60934839d3261d",
+  "base_master_commit": "6fca71dc37551c0f0fa6095c62289d608a3cf48f",
+  "canonical_raw_sha256": "6ecd4c929ecd3bdca32c646aec8210a7757b566843a90102f21bd86d2da036d6",
+  "donor_train_sha256": "5f1e33f69b02bad86d89dcc2f67a1018cef68aaeacfbf72c310a1b7902fc268f",
+  "donor_validation_sha256": "134f51a2ac9e546bf1a2f21f4efbf56a62bf019a08de14209058563b0a88ae23",
+  "train_count": 4910,
+  "validation_count": 380,
+  "window_shape": [
+    65,
+    3
+  ],
+  "channels": [
+    "log_return",
+    "log_high_low_range",
+    "log1p_volume"
+  ],
+  "train_dates": {
+    "window_start_min": "2012-01-04",
+    "window_end_max": "2021-12-30"
+  },
+  "validation_dates": {
+    "window_start_min": "2022-01-04",
+    "window_end_max": "2022-12-30"
+  },
+  "normalization_type": "global_channel_zscore_train_only_float64_fit",
+  "normalization_contract": {
+    "type": "global_channel_zscore",
+    "scope": "all donor_train windows and sessions",
+    "fit_split": "donor_train",
+    "channels": [
+      "log_return",
+      "log_high_low_range",
+      "log1p_volume"
+    ],
+    "fit_axes": [
+      0,
+      1
+    ],
+    "ddof": 0,
+    "fit_dtype": "float64",
+    "output_dtype": "float32",
+    "std_threshold": 1e-08,
+    "zero_variance_policy": "replace sigma with 1.0 when sigma < threshold",
+    "mean": [
+      0.0008114289710088066,
+      0.02602580514891484,
+      16.06027218135258
+    ],
+    "raw_std": [
+      0.023515504591060377,
+      0.01672428879172832,
+      1.0933253360280637
+    ],
+    "std": [
+      0.023515504591060377,
+      0.01672428879172832,
+      1.0933253360280637
+    ]
+  },
+  "normalizer_path": "generadores/daniel/artifacts/manifests/diffusion_seed42_global_channel_normalizer.json",
+  "normalizer_sha256": "7e0fcce9c67d6a01581df4bed12e130555b164e7e1f846c39b25b4996eecef8e",
+  "normalizer_minimum_std": 0.01672428879172832,
+  "normalizer_roundtrip_max_abs_error": 1.507916920218122e-07,
+  "effective_config": {
+    "model": {
+      "type": "ddpm_temporal_1d",
+      "input_length": 65,
+      "input_channels": 3,
+      "base_channels": 64,
+      "time_embedding_dim": 128
+    },
+    "diffusion": {
+      "steps": 100,
+      "objective": "epsilon_prediction",
+      "beta_schedule": "linear",
+      "beta_start": 0.0001,
+      "beta_end": 0.02
+    },
+    "training": {
+      "batch_size": 64,
+      "learning_rate": 0.0002,
+      "optimizer": "adamw",
+      "weight_decay": 0.0001,
+      "gradient_clip_norm": 1.0,
+      "max_epochs": 200,
+      "early_stopping_patience": 20
+    },
+    "normalization": {
+      "type": "global_channel_zscore",
+      "fit_split": "donor_train",
+      "fit_axes": [
+        0,
+        1
+      ],
+      "fit_dtype": "float64",
+      "output_dtype": "float32",
+      "ddof": 0,
+      "std_threshold": 1e-08,
+      "zero_variance_replacement": 1.0
+    },
+    "reproducibility": {
+      "seed": 42,
+      "validation_seed": 424242
+    }
+  },
+  "device": "cpu",
+  "python_version": "3.14.3",
+  "torch_version": "2.13.0+cpu",
+  "cuda_version": null,
+  "torch_num_threads": 4,
+  "start_time": "2026-08-30T16:23:42.723030+00:00",
+  "end_time": "2026-08-30T16:25:31.512131+00:00",
+  "epochs_completed": 33,
+  "best_epoch": 13,
+  "best_validation_loss": 0.5556680957476298,
+  "final_train_loss": 0.46808788489985775,
+  "final_validation_loss": 0.566735694805781,
+  "stopping_reason": "early_stopping_patience",
+  "total_seconds": 107.79306589999942,
+  "runtime_seconds": 107.79306589999942,
+  "mean_seconds_per_epoch": 3.266456542424225,
+  "checkpoint_best": "generadores/daniel/artifacts/checkpoints/diffusion_seed42_global_channel/best_model.pt",
+  "checkpoint_last": "generadores/daniel/artifacts/checkpoints/diffusion_seed42_global_channel/last_model.pt",
+  "best_checkpoint_path": "generadores/daniel/artifacts/checkpoints/diffusion_seed42_global_channel/best_model.pt",
+  "last_checkpoint_path": "generadores/daniel/artifacts/checkpoints/diffusion_seed42_global_channel/last_model.pt",
+  "best_checkpoint_sha256": "967ff54206cc5dfc7b26bb2e438625a2f0fc74337e5d7438ccb0b1f87354e33f",
+  "last_checkpoint_sha256": "e8974af65fda8acf6f42d3e8ceaf7d075484d44e536f2412babc415551970210",
+  "history_path": "generadores/daniel/artifacts/histories/diffusion_seed42_global_channel.csv",
+  "validation_protocol": {
+    "shuffle": false,
+    "backward": false,
+    "optimizer_step": false,
+    "fixed_generator_reinitialized_each_epoch": true,
+    "seed": 424242
+  }
+}

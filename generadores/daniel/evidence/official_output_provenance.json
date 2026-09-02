@@ -1,0 +1,18 @@
+{
+  "official_output_path": "generadores/daniel/outputs/diffusion_seed42_normalized.parquet",
+  "official_output_sha256": "bb9b5ad6b412fd785f73344cd765c56447b92de2b5827e40b3dc77d06e40a6c2",
+  "source_model": "diffusion_ddpm",
+  "training_seed": 42,
+  "sampling_seed": 42,
+  "sample_count": 5000,
+  "window_shape": [65, 3],
+  "space": "global_channel_normalized",
+  "donor_train_sha256": "5f1e33f69b02bad86d89dcc2f67a1018cef68aaeacfbf72c310a1b7902fc268f",
+  "normalizer_sha256": "7e0fcce9c67d6a01581df4bed12e130555b164e7e1f846c39b25b4996eecef8e",
+  "best_checkpoint_sha256": "967ff54206cc5dfc7b26bb2e438625a2f0fc74337e5d7438ccb0b1f87354e33f",
+  "normalized_pool_path_local_untracked": "generadores/daniel/artifacts/samples/diffusion_seed42_global_channel_normalized_5000.npz",
+  "normalized_pool_sha256": "2734160bc03384d436f8425d48717727c1c1c58749e73c315ab10b68f5ec5fa8",
+  "parquet_matches_normalized_pool_exactly": true,
+  "comparison_max_abs_difference": 0.0,
+  "verification_note": "features_flat was ordered by synthetic_id, reshaped to [5000, 65, 3], and compared byte-for-byte as float32 values with the local normalized pool"
+}
