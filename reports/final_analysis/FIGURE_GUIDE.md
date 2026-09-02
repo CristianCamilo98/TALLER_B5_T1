@@ -26,16 +26,16 @@ method.
 
 | Figure | Purpose | Main message | Recommended use | Priority |
 |---|---|---|---|---|
-| `presentation/01_rmse_by_synthetic_share` · `github/rmse_by_synthetic_share` | RMSE vs synthetic share, all 5 methods, full scale incl. Real-Only line | Every method improves sharply over Real-Only; the 5 methods cluster far below it | PRESENTATION, ROOT_README | MUST_SHOW |
-| `presentation/01b_rmse_by_synthetic_share_zoom` | Same data, y-axis zoomed to the 5-method range; Real-Only annotated as text only | Reveals the actual ranking and DDPM's 50% variance, invisible at full scale | PRESENTATION | USEFUL |
+| `presentation/01_rmse_by_synthetic_share` · `github/rmse_by_synthetic_share` | RMSE vs synthetic share, all 5 methods, full scale incl. Real-Only line | Every method improves sharply over Real-Only; the 5 methods cluster far below it | ROOT_README, GITHUB_ONLY, APPENDIX | USEFUL (backup/evidence, not the presentation lead — Real-Only compresses the 5 curves) |
+| `presentation/01b_rmse_by_synthetic_share_zoom` | Same data, y-axis zoomed to the 5-method range; Real-Only annotated as text only | Reveals the actual ranking and DDPM's 50% variance, invisible at full scale | PRESENTATION (candidate) | REVIEW_FOR_PRESENTATION |
 | `presentation/02_rmse_improvement_heatmap` · `github/rmse_improvement_heatmap` | % RMSE improvement vs Real-Only, 5 methods x 3 ratios | All cells positive (74–84%); improvement generally rises with ratio | PRESENTATION, ROOT_README | MUST_SHOW |
-| `presentation/03_performance_at_75pct` · `github/performance_at_75pct` | RMSE at 75% synthetic share, sorted best→worst | DDPM lowest RMSE, TimeVAE highest, at the best-performing ratio for every method | PRESENTATION, GENERATOR_README | MUST_SHOW |
-| `presentation/03b_mae_at_75pct` · `github/mae_by_synthetic_share` | MAE at 75% (bar) / MAE vs share (line) | Normalizing Flow has the lowest MAE at 75%, a different winner than RMSE | APPENDIX, GITHUB_ONLY | USEFUL |
-| `presentation/04_seed_stability` · `github/seed_stability` | Mean ± min–max range across 3 seeds, by method and ratio | TimeVAE is the most seed-stable but least accurate method; DDPM is markedly less stable at 25–50% and tightens sharply at 75% | PRESENTATION, APPENDIX | MUST_SHOW |
-| `presentation/05_neural_vs_simple_baseline` · `github/neural_vs_simple_baseline` | RMSE-improvement difference of each neural method vs Bootstrap + Jitter | WGAN-GP and Normalizing Flow beat the baseline at every ratio; DDPM only at 75%; TimeVAE never does | PRESENTATION, ROOT_README | MUST_SHOW |
-| `presentation/06_c2st_fidelity` · `github/c2st_fidelity` | C2ST ROC-AUC per method vs held-out real donors | TimeVAE is easiest to tell apart from real data (worst); Bootstrap + Jitter hardest (structurally, not by "good generation") | APPENDIX, GENERATOR_README | USEFUL |
+| `presentation/03_performance_at_75pct` · `github/performance_at_75pct` | RMSE at 75% synthetic share (with improvement % alongside each value), sorted best→worst | DDPM lowest RMSE (+83.5%), TimeVAE highest, at the best-performing ratio for every method | PRESENTATION, GENERATOR_README | MUST_SHOW |
+| `presentation/03b_mae_at_75pct` · `github/mae_by_synthetic_share` | MAE at 75% (bar, with improvement %) / MAE vs share (line) | Normalizing Flow has the lowest MAE at 75% (+84.8%), a different winner than RMSE | APPENDIX, GITHUB_ONLY | USEFUL |
+| `presentation/04_seed_stability` · `github/seed_stability` | Mean ± min–max range across 3 downstream mixture/subsampling seeds, by method and ratio | TimeVAE is the most seed-stable but least accurate method; DDPM is markedly less stable at 25–50% and tightens sharply at 75% | GITHUB_ONLY, APPENDIX, BACKUP | USEFUL |
+| `presentation/05_neural_vs_simple_baseline` · `github/neural_vs_simple_baseline` | RMSE-improvement difference of each neural method vs Bootstrap + Jitter, every bar labeled in pp | WGAN-GP and Normalizing Flow beat the baseline at every ratio; DDPM only at 75%; TimeVAE never does | PRESENTATION, ROOT_README | MUST_SHOW |
+| `presentation/06_c2st_fidelity` · `github/c2st_fidelity` | C2ST ROC-AUC per method vs held-out real donors | TimeVAE is easiest to tell apart from real data (worst); Bootstrap + Jitter hardest (structurally, not by "good generation") | ROOT_README, GITHUB_ONLY, BACKUP | USEFUL (approved as-is; not a presentation must-show) |
 | `github/fidelity_metric_summary` | 7 independent fidelity metrics, small multiples, no composite score | No single method wins every metric; TimeVAE is furthest from real on most of them | GITHUB_ONLY, APPENDIX | USEFUL |
-| `presentation/07_fidelity_vs_utility` · `github/fidelity_vs_utility` | C2ST AUC vs best RMSE improvement, one point per method | Return-channel fidelity loosely tracks utility in this 5-point sample; not causal | PRESENTATION, APPENDIX | MUST_SHOW |
+| `presentation/07_fidelity_vs_utility` · `github/fidelity_vs_utility` | C2ST AUC vs best RMSE improvement, one point per method | Return-channel fidelity loosely tracks utility in this 5-point sample; not causal | PRESENTATION (candidate) | REVIEW_FOR_PRESENTATION |
 | `github/fidelity_log_return_distribution` | log_return marginal (p01–p99), held-out real donors vs each method | TimeVAE's log_return range is visibly collapsed relative to real and to the other four methods | GITHUB_ONLY, APPENDIX | OPTIONAL |
 
 ### How to read each figure / what NOT to conclude
@@ -57,14 +57,21 @@ method.
 - Best MAE overall: Normalizing Flow @ 75%, MAE ≈ 0.1740 (+84.8%).
 - Most seed-stable: TimeVAE @ 25% (RMSE std ≈ 0.0006). Least seed-stable: DDPM @ 50% (RMSE std ≈ 0.0638).
 
-## Presentation shortlist (5-minute talk, max 4 figures)
+## Presentation shortlist (5-minute talk)
 
-1. **`01b_rmse_by_synthetic_share_zoom`** — the core result: every method beats the small-sample baseline, ranking visible at a glance.
-2. **`02_rmse_improvement_heatmap`** — the headline number (74–84% improvement) in one glance, per method and ratio.
-3. **`05_neural_vs_simple_baseline`** — directly answers "do the neural generators actually add anything over a simple method?"
-4. **`07_fidelity_vs_utility`** — closes the loop by relating the fidelity work (Section 6 story) to the utility result, with an explicit exploratory-only caveat.
+**MUST_SHOW**
 
-`03_performance_at_75pct` and `04_seed_stability` are strong secondary
-candidates if time allows a 5th slide or an appendix slide; `06_c2st_fidelity`
-and the log_return distribution figure are better suited to a generator-level
-README or an appendix than to the 5-minute talk itself.
+1. **`02_rmse_improvement_heatmap`** — the headline number (74–84% improvement) in one glance, per method and ratio.
+2. **`03_performance_at_75pct`** — who actually wins, with both RMSE and the improvement % in one bar.
+3. **`05_neural_vs_simple_baseline`** — directly answers "do the neural generators actually add anything over a simple method?", every bar labeled.
+
+**REVIEW_FOR_PRESENTATION** (include if the talk has room for a 4th–5th slide)
+
+- **`07_fidelity_vs_utility`** — closes the loop between the fidelity work and the utility result. Kept out of MUST_SHOW only because it needs the most caveats (n=5, exploratory, no trend line) to present correctly in the time available for one slide — the underlying story (return-channel fidelity metrics track utility fairly strongly; nearest-neighbour and volume-channel Wasserstein do not) is genuinely one of the stronger findings in `ANALYSIS.md` Section 7, so include it if there is time to state the caveat out loud.
+- **`01b_rmse_by_synthetic_share_zoom`** — useful if the audience needs to see the per-ratio curves and DDPM's 50% variance directly, rather than only the heatmap summary.
+
+**BACKUP / GITHUB** (repo evidence and generator READMEs, not the live talk)
+
+- `06_c2st_fidelity` — approved as-is; a fidelity detail better suited to a generator-level README or appendix slide.
+- `04_seed_stability` — the full stability picture; reference if a stability question comes up in Q&A.
+- `01_rmse_by_synthetic_share` (full-range) — kept as GitHub/evidence: Real-Only ≈ 1.48 compresses the five method curves too much for a presentation lead; `01b` is the presentation-appropriate version.

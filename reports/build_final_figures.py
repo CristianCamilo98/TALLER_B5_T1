@@ -269,31 +269,40 @@ def fig_improvement_heatmap(master: pd.DataFrame) -> None:
     pivot = pivot.reindex(METHOD_ORDER)[RATIOS]
     values = pivot.to_numpy()
 
+    # Fixed color scale so small real differences are not visually exaggerated.
+    # Falls back to a data-driven range only if a value ever fell outside it.
+    if values.min() >= 70 and values.max() <= 85:
+        vmin, vmax = 70.0, 85.0
+    else:
+        vmin, vmax = values.min() - 1, values.max() + 1
+    mid_value = (vmin + vmax) / 2
+
+    def draw(ax: plt.Axes) -> plt.cm.ScalarMappable:
+        im = ax.imshow(values, cmap=SEQUENTIAL_BLUE, aspect="auto", vmin=vmin, vmax=vmax)
+        ax.set_xticks(range(len(RATIOS)))
+        ax.set_xticklabels([RATIO_LABELS[r] for r in RATIOS])
+        ax.set_yticks(range(len(METHOD_ORDER)))
+        ax.set_yticklabels([method_label(m) for m in METHOD_ORDER])
+        ax.grid(False)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+        for i in range(values.shape[0]):
+            for j in range(values.shape[1]):
+                text_color = "white" if values[i, j] > mid_value else INK_PRIMARY
+                ax.text(
+                    j,
+                    i,
+                    f"+{values[i, j]:.1f}%",
+                    ha="center",
+                    va="center",
+                    color=text_color,
+                    fontsize=12,
+                    fontweight="bold",
+                )
+        return im
+
     fig, ax = plt.subplots(figsize=(7.5, 5.5), constrained_layout=True)
-    im = ax.imshow(values, cmap=SEQUENTIAL_BLUE, aspect="auto", vmin=values.min() - 1, vmax=values.max() + 1)
-    ax.set_xticks(range(len(RATIOS)))
-    ax.set_xticklabels([RATIO_LABELS[r] for r in RATIOS])
-    ax.set_yticks(range(len(METHOD_ORDER)))
-    ax.set_yticklabels([method_label(m) for m in METHOD_ORDER])
-    ax.grid(False)
-    for spine in ax.spines.values():
-        spine.set_visible(False)
-
-    mid_value = (values.min() + values.max()) / 2
-    for i in range(values.shape[0]):
-        for j in range(values.shape[1]):
-            text_color = "white" if values[i, j] > mid_value else INK_PRIMARY
-            ax.text(
-                j,
-                i,
-                f"+{values[i, j]:.1f}%",
-                ha="center",
-                va="center",
-                color=text_color,
-                fontsize=12,
-                fontweight="bold",
-            )
-
+    im = draw(ax)
     cbar = fig.colorbar(im, ax=ax, shrink=0.85, pad=0.03)
     cbar.set_label("RMSE improvement vs Real-Only (%)")
     ax.set_title("RMSE Improvement vs Real-Only")
@@ -302,18 +311,7 @@ def fig_improvement_heatmap(master: pd.DataFrame) -> None:
     plt.close(fig)
 
     fig, ax = plt.subplots(figsize=(7.5, 5.5), constrained_layout=True)
-    im = ax.imshow(values, cmap=SEQUENTIAL_BLUE, aspect="auto", vmin=values.min() - 1, vmax=values.max() + 1)
-    ax.set_xticks(range(len(RATIOS)))
-    ax.set_xticklabels([RATIO_LABELS[r] for r in RATIOS])
-    ax.set_yticks(range(len(METHOD_ORDER)))
-    ax.set_yticklabels([method_label(m) for m in METHOD_ORDER])
-    ax.grid(False)
-    for spine in ax.spines.values():
-        spine.set_visible(False)
-    for i in range(values.shape[0]):
-        for j in range(values.shape[1]):
-            text_color = "white" if values[i, j] > mid_value else INK_PRIMARY
-            ax.text(j, i, f"+{values[i, j]:.1f}%", ha="center", va="center", color=text_color, fontsize=12, fontweight="bold")
+    im = draw(ax)
     cbar = fig.colorbar(im, ax=ax, shrink=0.85, pad=0.03)
     cbar.set_label("RMSE improvement vs Real-Only (%)")
     ax.set_title("RMSE Improvement vs Real-Only")
@@ -326,22 +324,33 @@ def fig_improvement_heatmap(master: pd.DataFrame) -> None:
 # Figure 3 -- Performance at 75%  (RMSE, then MAE variant)
 # --------------------------------------------------------------------------
 def _performance_at_ratio(
-    master: pd.DataFrame, *, metric: str, metric_label: str, real_only_value: float, stem: str, title: str
+    master: pd.DataFrame,
+    *,
+    metric: str,
+    metric_label: str,
+    real_only_value: float,
+    stem: str,
+    title: str,
+    presentation: bool = True,
+    github: bool = False,
+    github_stem: str | None = None,
 ) -> None:
     sub = master[np.isclose(master["synthetic_ratio"], 0.75)].copy()
     mean_col = f"{metric}_mean"
     std_col = f"{metric}_std"
+    improvement_col = f"{metric}_improvement_pct"
     sub = sub.sort_values(mean_col, ascending=True)
 
-    fig, ax = plt.subplots(figsize=(8.5, 5), constrained_layout=True)
+    fig, ax = plt.subplots(figsize=(9, 5), constrained_layout=True)
     y_pos = np.arange(len(sub))
     colors = [METHOD_COLOR[m] for m in sub["method_id"]]
     ax.barh(y_pos, sub[mean_col], xerr=sub[std_col], color=colors, capsize=4, height=0.6)
     ax.set_yticks(y_pos)
     ax.set_yticklabels([method_label(m) for m in sub["method_id"]])
     ax.invert_yaxis()  # best (lowest) at top
-    for y, (value, std) in enumerate(zip(sub[mean_col], sub[std_col])):
-        ax.text(value + std + 0.004, y, f"{value:.3f}", va="center", fontsize=11, color=INK_PRIMARY)
+    for y, (value, std, improvement) in enumerate(zip(sub[mean_col], sub[std_col], sub[improvement_col])):
+        ax.text(value + std + 0.004, y, f"{value:.3f}  (+{improvement:.1f}%)", va="center", fontsize=11, color=INK_PRIMARY)
+    ax.set_xlim(right=sub[mean_col].max() + sub[std_col].max() + 0.095)
     ax.set_xlabel(metric_label)
     ax.set_title(title)
     ax.text(
@@ -353,7 +362,10 @@ def _performance_at_ratio(
         fontsize=10,
         color=INK_MUTED,
     )
-    save_figure(fig, stem, presentation=True, github=(stem == "performance_at_75pct"))
+    save_figure(fig, stem, presentation=presentation, github=False)
+    if github and github_stem:
+        fig.savefig(GITHUB_DIR / f"{github_stem}.png", bbox_inches="tight")
+        created_files.append(GITHUB_DIR / f"{github_stem}.png")
     plt.close(fig)
 
 
@@ -365,31 +377,10 @@ def fig_performance_at_75pct(master: pd.DataFrame, real_only_rmse: float, real_o
         real_only_value=real_only_rmse,
         stem="03_performance_at_75pct",
         title="Forecast RMSE at 75% Synthetic Share",
+        presentation=True,
+        github=True,
+        github_stem="performance_at_75pct",
     )
-    fig, ax = plt.subplots(figsize=(8.5, 5), constrained_layout=True)
-    sub = master[np.isclose(master["synthetic_ratio"], 0.75)].sort_values("rmse_mean", ascending=True)
-    y_pos = np.arange(len(sub))
-    colors = [METHOD_COLOR[m] for m in sub["method_id"]]
-    ax.barh(y_pos, sub["rmse_mean"], xerr=sub["rmse_std"], color=colors, capsize=4, height=0.6)
-    ax.set_yticks(y_pos)
-    ax.set_yticklabels([method_label(m) for m in sub["method_id"]])
-    ax.invert_yaxis()
-    for y, (value, std) in enumerate(zip(sub["rmse_mean"], sub["rmse_std"])):
-        ax.text(value + std + 0.004, y, f"{value:.3f}", va="center", fontsize=11, color=INK_PRIMARY)
-    ax.set_xlabel("RMSE (75% synthetic share)")
-    ax.set_title("Forecast RMSE at 75% Synthetic Share")
-    ax.text(
-        0.98,
-        -0.14,
-        f"Real-only reference RMSE ≈ {real_only_rmse:.3f} (not shown to scale)",
-        transform=ax.transAxes,
-        ha="right",
-        fontsize=10,
-        color=INK_MUTED,
-    )
-    save_figure(fig, "performance_at_75pct", presentation=False, github=True, svg=False)
-    plt.close(fig)
-
     _performance_at_ratio(
         master,
         metric="mae",
@@ -397,6 +388,8 @@ def fig_performance_at_75pct(master: pd.DataFrame, real_only_rmse: float, real_o
         real_only_value=real_only_mae,
         stem="03b_mae_at_75pct",
         title="Forecast MAE at 75% Synthetic Share",
+        presentation=True,
+        github=False,
     )
 
 
@@ -463,7 +456,7 @@ def fig_seed_stability(stability: pd.DataFrame) -> None:
     fig.text(
         0.02,
         -0.02,
-        "Dot = mean RMSE across 3 seeds (42, 123, 2026) · line = min–max range",
+        "Dot = mean RMSE across 3 downstream mixture/subsampling seeds (42, 123, 2026) · line = min–max range",
         fontsize=10,
         color=INK_MUTED,
     )
@@ -483,7 +476,7 @@ def fig_seed_stability(stability: pd.DataFrame) -> None:
     ax.set_title("Seed Stability by Method and Synthetic Share")
     handles = [Line2D([0], [0], color=ratio_shade[r], lw=3, marker="o", markersize=7, label=RATIO_LABELS[r]) for r in RATIOS]
     ax.legend(handles=handles, title="Synthetic share", loc="center left", bbox_to_anchor=(1.02, 0.5))
-    fig.text(0.02, -0.02, "Dot = mean RMSE across 3 seeds (42, 123, 2026) · line = min–max range", fontsize=10, color=INK_MUTED)
+    fig.text(0.02, -0.02, "Dot = mean RMSE across 3 downstream mixture/subsampling seeds (42, 123, 2026) · line = min–max range", fontsize=10, color=INK_MUTED)
     save_figure(fig, "seed_stability", presentation=False, github=True, svg=False)
     plt.close(fig)
 
@@ -492,46 +485,63 @@ def fig_seed_stability(stability: pd.DataFrame) -> None:
 # Figure 5 -- Neural vs simple baseline
 # --------------------------------------------------------------------------
 def fig_baseline_vs_neural(baseline_vs_neural: pd.DataFrame) -> None:
-    fig, ax = plt.subplots(figsize=(9, 5.5), constrained_layout=True)
     n_neural = len(NEURAL_METHOD_IDS)
     width = 0.8 / n_neural
     x_base = np.arange(len(RATIOS))
-    for i, mid in enumerate(NEURAL_METHOD_IDS):
-        sub = baseline_vs_neural[baseline_vs_neural["neural_method_id"] == mid].sort_values("synthetic_ratio")
-        x = x_base + (i - (n_neural - 1) / 2) * width
-        ax.bar(x, sub["rmse_improvement_pct_difference_vs_baseline"], width=width * 0.9, color=METHOD_COLOR[mid], label=method_label(mid))
-    ax.axhline(0, color=AXIS_LINE, linewidth=1.4)
-    ax.text(2.55, 0.15, "0 = same as simple baseline", fontsize=10, color=INK_MUTED, ha="left", va="bottom")
-    ax.set_xticks(x_base)
-    ax.set_xticklabels([RATIO_LABELS[r] for r in RATIOS])
-    ax.set_xlabel("Synthetic data share")
-    ax.set_ylabel("RMSE improvement difference vs Bootstrap + Jitter (pp)")
-    ax.set_title("Do Neural Generators Beat the Simple Baseline?")
-    ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), title="Method")
+    y_min = baseline_vs_neural["rmse_improvement_pct_difference_vs_baseline"].min()
+    y_max = baseline_vs_neural["rmse_improvement_pct_difference_vs_baseline"].max()
+    pad = (y_max - y_min) * 0.12
+
+    def draw(ax: plt.Axes) -> None:
+        for i, mid in enumerate(NEURAL_METHOD_IDS):
+            sub = baseline_vs_neural[baseline_vs_neural["neural_method_id"] == mid].sort_values("synthetic_ratio")
+            x = x_base + (i - (n_neural - 1) / 2) * width
+            values = sub["rmse_improvement_pct_difference_vs_baseline"].to_numpy()
+            ax.bar(x, values, width=width * 0.9, color=METHOD_COLOR[mid], label=method_label(mid))
+            for xi, value in zip(x, values):
+                offset = pad * 0.18 if value >= 0 else -pad * 0.18
+                va = "bottom" if value >= 0 else "top"
+                ax.text(xi, value + offset, f"{value:+.2f}", ha="center", va=va, fontsize=8.5, color=INK_PRIMARY)
+        ax.axhline(0, color=AXIS_LINE, linewidth=1.4)
+        ax.text(
+            1.0,
+            0,
+            "0 = same as\nsimple baseline",
+            transform=ax.get_yaxis_transform(),
+            ha="left",
+            va="center",
+            fontsize=9.5,
+            color=INK_MUTED,
+        )
+        ax.set_ylim(y_min - pad, y_max + pad)
+        ax.set_xticks(x_base)
+        ax.set_xticklabels([RATIO_LABELS[r] for r in RATIOS])
+        ax.set_xlabel("Synthetic data share")
+        ax.set_ylabel("RMSE improvement difference\nvs Bootstrap + Jitter (pp)")
+        ax.set_title("Do Neural Generators Beat the Simple Baseline?")
+        ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.22), ncol=4, title="Method")
+
+    fig, ax = plt.subplots(figsize=(8.5, 5.8), constrained_layout=True)
+    draw(ax)
     fig.text(
         0.02,
         -0.03,
-        "Positive = neural model improves more than Bootstrap + Jitter · Negative = simple baseline wins",
+        "Positive = neural model improves more than Bootstrap + Jitter (pp) · Negative = simple baseline wins",
         fontsize=10,
         color=INK_MUTED,
     )
     save_figure(fig, "05_neural_vs_simple_baseline", presentation=True, github=False)
     plt.close(fig)
 
-    fig, ax = plt.subplots(figsize=(9, 5.5), constrained_layout=True)
-    for i, mid in enumerate(NEURAL_METHOD_IDS):
-        sub = baseline_vs_neural[baseline_vs_neural["neural_method_id"] == mid].sort_values("synthetic_ratio")
-        x = x_base + (i - (n_neural - 1) / 2) * width
-        ax.bar(x, sub["rmse_improvement_pct_difference_vs_baseline"], width=width * 0.9, color=METHOD_COLOR[mid], label=method_label(mid))
-    ax.axhline(0, color=AXIS_LINE, linewidth=1.4)
-    ax.text(2.55, 0.15, "0 = same as simple baseline", fontsize=10, color=INK_MUTED, ha="left", va="bottom")
-    ax.set_xticks(x_base)
-    ax.set_xticklabels([RATIO_LABELS[r] for r in RATIOS])
-    ax.set_xlabel("Synthetic data share")
-    ax.set_ylabel("RMSE improvement difference vs Bootstrap + Jitter (pp)")
-    ax.set_title("Do Neural Generators Beat the Simple Baseline?")
-    ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), title="Method")
-    fig.text(0.02, -0.03, "Positive = neural model improves more than Bootstrap + Jitter · Negative = simple baseline wins", fontsize=10, color=INK_MUTED)
+    fig, ax = plt.subplots(figsize=(8.5, 5.8), constrained_layout=True)
+    draw(ax)
+    fig.text(
+        0.02,
+        -0.03,
+        "Positive = neural model improves more than Bootstrap + Jitter (pp) · Negative = simple baseline wins",
+        fontsize=10,
+        color=INK_MUTED,
+    )
     save_figure(fig, "neural_vs_simple_baseline", presentation=False, github=True, svg=False)
     plt.close(fig)
 
