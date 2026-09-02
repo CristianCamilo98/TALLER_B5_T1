@@ -1,5 +1,7 @@
 # Taller B5-T1 — Synthetic NVDA Common Core
 
+Guía de entorno, datos y ejecución desde un clone: [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md).
+
 Common core certificado para el experimento de ampliación sintética de NVDA.
 Esta rama contiene exclusivamente configuración, descarga, limpieza, splits
 diarios, features, ventanas y pruebas anti-leakage. **No implementa todavía**
