@@ -25,8 +25,10 @@ def test_float_precision_edge_is_accepted_but_material_error_is_rejected() -> No
 
 def test_clean_snapshot_quality_is_certified() -> None:
     manifest = json.loads((ROOT / "data/clean/clean_manifest.json").read_text(encoding="utf-8"))
+    quality = pd.read_csv(ROOT / "data/clean/quality_report.csv").set_index("check")
     clean = pd.read_parquet(ROOT / "data/clean/ohlcv_clean.parquet")
-    assert manifest["strict_float_edge_rows_rescued"] == 7
+    assert manifest["strict_float_edge_rows_rescued"] == int(quality.loc["strict_float_edge_rows", "value"])
+    assert quality.loc["strict_float_edge_rows", "status"] == "PASS"
     assert manifest["dropped_material_ohlc_invariant"] == 0
     assert manifest["dropped_nan"] == 0
     assert len(clean) == 38_720

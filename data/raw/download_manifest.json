@@ -1,9 +1,9 @@
 {
   "data_version": "raw-0.2.0",
   "protocol_version": "common-core-1.0.0",
-  "built_at_utc": "2026-08-27T16:36:30.405377+00:00",
+  "built_at_utc": "2026-09-01T06:19:08.962123+00:00",
   "config_path": "configs/experiment.yaml",
-  "config_sha256": "7b105c539879e381e608c1d6f91d11e59c5832cd00c577994bb709e965dfa622",
+  "config_sha256": "caea53c079353cb8854434364d0f67a4cf195e5c05f5f10c9f1958f3eeacd639",
   "source": "yfinance",
   "acquisition_mode": "reuse_existing_snapshot_no_network",
   "tickers_requested": [
@@ -197,19 +197,19 @@
     "format": "long"
   },
   "checksums_sha256": {
-    "data/raw/by_ticker/NVDA.parquet": "39b79e6c6027aa702333dbc33cbd61d91a6e73d11ff677a8601e0698328dff46",
+    "data/raw/by_ticker/NVDA.parquet": "ae0fc4920fe29f78f493bcd70d76bf3bf0aa4ed84ca41456c2a826496aa44d28",
     "data/raw/by_ticker/AMD.parquet": "b4af187f9c8786730830782163993fe7dff0e2d9251c485dfc78a075fbfe8eda",
-    "data/raw/by_ticker/INTC.parquet": "f20c9c8f9d0a4c942d5a960247c8ca1cc41674b5e9fda97dbf26654c35f5ee45",
-    "data/raw/by_ticker/QCOM.parquet": "6131b766eb9178521a3ae01f170f7517d945e28cde4c1945c28aa905f57264b8",
-    "data/raw/by_ticker/AVGO.parquet": "c873f3c8afed2c76c7e0ca0e815a0f0b299cc2c35bd8c552b424399214fedcdf",
-    "data/raw/by_ticker/MU.parquet": "4d7cd2af39452662d0830ea528911860e21139e70b9bacb61c401ca9cdec2af9",
-    "data/raw/by_ticker/TXN.parquet": "aa3a3853199f33be668447fe0c72cc1678128361bb59c333e91adff43534c6dc",
-    "data/raw/by_ticker/ADI.parquet": "6791e1cd96aa9cb2d08659348566703286f7c7dee46ca18fd1d8e839b11e2cc6",
-    "data/raw/by_ticker/MCHP.parquet": "cf0fc54aeafd194963fb558a4ecb3c41ef8c782e13cd0832daa6b3470cab8cf7",
-    "data/raw/by_ticker/MRVL.parquet": "3eb986a9405a6fe0d0d94e864d57be8f9fa7efe3f49cbced02f12359ce3e5f7f",
-    "data/raw/by_ticker/NXPI.parquet": "01929283572eef84b70cbf958183fb29ea80a8dc65d4d4f6468867c2c3afd0bf",
-    "data/raw/ohlcv_raw.parquet": "6ecd4c929ecd3bdca32c646aec8210a7757b566843a90102f21bd86d2da036d6",
-    "data/raw/ohlcv_raw.csv": "02d38e577a00ad32f18a7b5f313623bddf31f5aa0f8e9d7063d047575a99b146"
+    "data/raw/by_ticker/INTC.parquet": "dae04d7a5dfbaab48b4608576c1740f60c5aea5842e5820c5d4fa93749a89fef",
+    "data/raw/by_ticker/QCOM.parquet": "209730aa356f34017febd54c8fb183eedbe25c38372c46ba0e3c4ae21490dde4",
+    "data/raw/by_ticker/AVGO.parquet": "cba698ac2b3d27488728632622c4b36a3dac43f1c24c326e80c449b4fdbee3ea",
+    "data/raw/by_ticker/MU.parquet": "d9e71d4969476b3293aaed2427338eff7029dcabce7918ca498d59eef7c1bc03",
+    "data/raw/by_ticker/TXN.parquet": "460ef8e103a52c06b0af6a10701289ce76e3bafc774162bb9905a689f57792f0",
+    "data/raw/by_ticker/ADI.parquet": "8e51b1bea4c8a12e9c62066ffae6efb12d37eaa33822b3686d70d28cb527c28f",
+    "data/raw/by_ticker/MCHP.parquet": "c047aa94021a2fe0e5384cedbc3e0764fedf505608d3660c5558e2c74eaa6074",
+    "data/raw/by_ticker/MRVL.parquet": "c6093f2b7b41d0e63cda0b6d660986522e39370c676a85a93a4763f660f442c0",
+    "data/raw/by_ticker/NXPI.parquet": "4cd8dea1720dfd750519ea82f7c039e14bb1230b536652a422d329cd062393a3",
+    "data/raw/ohlcv_raw.parquet": "69f69db6d6efc490945881615eb7297ee82e57320ba8658395214e02be5bec5e",
+    "data/raw/ohlcv_raw.csv": "cd4190e8ea8c34dd8d9e1aed89915458f6c227e48c722f1dd09972846df7d00c"
   },
   "checksum_policy": "Hashes describe this observed snapshot. Downstream stages verify against this manifest; no future yfinance download is required to reproduce the same hash."
 }

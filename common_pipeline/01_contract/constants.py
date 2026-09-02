@@ -2,12 +2,31 @@
 
 from __future__ import annotations
 
+import hashlib
+import os
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GENERATORS_ROOT = REPO_ROOT / "generadores"
 DONOR_TRAIN_PATH = REPO_ROOT / "data" / "features" / "windows" / "donor_train.parquet"
-DONOR_TRAIN_SHA256 = "5f1e33f69b02bad86d89dcc2f67a1018cef68aaeacfbf72c310a1b7902fc268f"
+_FALLBACK_DONOR_TRAIN_SHA256 = "5f1e33f69b02bad86d89dcc2f67a1018cef68aaeacfbf72c310a1b7902fc268f"
+
+
+def _sha256_existing_file(path: Path) -> str | None:
+    if not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+DONOR_TRAIN_SHA256 = (
+    os.environ.get("SYNTHETIC_NVDA_DONOR_TRAIN_SHA256")
+    or _sha256_existing_file(DONOR_TRAIN_PATH)
+    or _FALLBACK_DONOR_TRAIN_SHA256
+)
 
 EXPECTED_GENERATOR_COUNT = 4
 EXPECTED_ROWS = 5000

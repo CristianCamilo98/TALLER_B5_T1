@@ -4,7 +4,7 @@
   "seed": 42,
   "noise_scale": 0.05,
   "donor_train_path": "data/features/windows/donor_train.parquet",
-  "donor_train_sha256": "5f1e33f69b02bad86d89dcc2f67a1018cef68aaeacfbf72c310a1b7902fc268f",
+  "donor_train_sha256": "28848c901d0c9e54182c52ab103a375eb067d9969cd3ec183c7550a6b1255939",
   "n_windows": 5000,
   "logical_shape": [
     5000,
@@ -40,6 +40,6 @@
     ],
     "normalizer_sha256": "7e0fcce9c67d6a01581df4bed12e130555b164e7e1f846c39b25b4996eecef8e"
   },
-  "parquet_sha256": "846a6e2306922704e8dec39445bed0f2a9b146fd57dd793efe0f647a499395fe",
+  "parquet_sha256": "412bdc0b147e68f956f0924226a5e326a9267822016c4c6395156f63d8cdabe3",
   "reproducibility_pass": true
 }
