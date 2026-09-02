@@ -75,6 +75,7 @@ DEFAULT_CONVERGENCE_FIGURE = (
     / "normalizing_flow_convergence.png"
 )
 DONOR_VALIDATION_PATH = REPO_ROOT / "data" / "features" / "windows" / "donor_validation.parquet"
+DONOR_VALIDATION_SHA256 = "134f51a2ac9e546bf1a2f21f4efbf56a62bf019a08de14209058563b0a88ae23"
 SOURCE_MODEL = "normalizing_flow"
 
 
@@ -167,6 +168,8 @@ def main() -> int:
     if not np.allclose(normalizer.std, np.asarray(CANONICAL_STD), rtol=0.0, atol=1.0e-12):
         raise ValueError("donor_train std does not match canonical stats")
     validation_sha = sha256_file(DONOR_VALIDATION_PATH)
+    if validation_sha != DONOR_VALIDATION_SHA256:
+        raise ValueError(f"donor_validation SHA mismatch: {validation_sha} != {DONOR_VALIDATION_SHA256}")
     flow_config = FlowConfig(
         hidden_dims=tuple([args.hidden_dim] * args.hidden_layers),
         n_coupling_layers=args.coupling_layers,

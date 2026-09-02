@@ -20,7 +20,6 @@ for module_path in (REPO_ROOT, CONTRACT_MODULE, SRC_DIR):
         sys.path.insert(0, str(module_path))
 
 from constants import (  # noqa: E402
-    BASELINE_OUTPUT_NAME,
     CANONICAL_MEAN,
     CANONICAL_STD,
     CHANNEL_ORDER,
@@ -34,9 +33,11 @@ from constants import (  # noqa: E402
 from io_utils import flatten_window, sha256_file, write_json  # noqa: E402
 from normalizing_flow import load_checkpoint, sample_windows  # noqa: E402
 
+OFFICIAL_OUTPUT_NAME = "normalizing_flow_seed42_normalized.parquet"
 DEFAULT_OUTPUT_PATH = (
-    REPO_ROOT / "generadores" / "david" / "outputs" / BASELINE_OUTPUT_NAME
+    REPO_ROOT / "generadores" / "david" / "outputs" / OFFICIAL_OUTPUT_NAME
 )
+DONOR_VALIDATION_PATH = REPO_ROOT / "data" / "features" / "windows" / "donor_validation.parquet"
 DEFAULT_CHECKPOINT = (
     REPO_ROOT
     / "generadores"
@@ -173,6 +174,7 @@ def main() -> int:
     output_sha = sha256_file(output_path)
     checkpoint_sha = sha256_file(checkpoint_path)
     donor_sha = sha256_file(DONOR_TRAIN_PATH)
+    donor_validation_sha = sha256_file(DONOR_VALIDATION_PATH)
     write_json(
         output_path.with_suffix(".provenance.json"),
         {
@@ -185,6 +187,7 @@ def main() -> int:
             "algorithm": "RealNVP ActNorm affine-coupling normalizing flow",
             "seed": args.seed,
             "training_seed": args.seed,
+            "sampling_seed": args.seed,
             "sampling_temperature": args.temperature,
             "sampling": sampling_metadata,
             "space": GLOBAL_NORMALIZED_SPACE,
@@ -193,6 +196,8 @@ def main() -> int:
             "std": list(CANONICAL_STD),
             "donor_train_path": "data/features/windows/donor_train.parquet",
             "donor_train_sha256": donor_sha,
+            "donor_validation_path": "data/features/windows/donor_validation.parquet",
+            "donor_validation_sha256": donor_validation_sha,
             "checkpoint_path": _relative(checkpoint_path),
             "checkpoint_sha256": checkpoint_sha,
             "checkpoint_training_seed": checkpoint_metadata["training_seed"],

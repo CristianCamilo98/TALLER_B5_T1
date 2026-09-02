@@ -56,6 +56,7 @@
   "algorithm": "RealNVP ActNorm affine-coupling normalizing flow",
   "seed": 42,
   "training_seed": 42,
+  "sampling_seed": 42,
   "sampling_temperature": 1.0,
   "sampling": {
     "mode": "direct_base_distribution_sampling",
@@ -81,6 +82,8 @@
   ],
   "donor_train_path": "data/features/windows/donor_train.parquet",
   "donor_train_sha256": "5f1e33f69b02bad86d89dcc2f67a1018cef68aaeacfbf72c310a1b7902fc268f",
+  "donor_validation_path": "data/features/windows/donor_validation.parquet",
+  "donor_validation_sha256": "134f51a2ac9e546bf1a2f21f4efbf56a62bf019a08de14209058563b0a88ae23",
   "checkpoint_path": "generadores/david/artifacts/checkpoints/normalizing_flow_seed42.npz",
   "checkpoint_sha256": "d2a9480f0017a4b8780124771f864f0f85f284e5f8d46566e4754821acea3b25",
   "checkpoint_training_seed": 42,

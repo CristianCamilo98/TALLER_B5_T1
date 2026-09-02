@@ -25,11 +25,25 @@ log-det-Jacobian de cada transformacion invertible. El entrenamiento usa solo
 | Entrenamiento default | 10000 epochs, early stopping patience 200 |
 | Regularizacion default | Adam lr 5e-4, weight decay 5e-5 |
 | Sampling default | temperature 1.0 desde la distribucion base normal |
-| Output | `outputs/bootstrap_jitter_seed42_normalized.parquet` |
+| Output oficial | `outputs/normalizing_flow_seed42_normalized.parquet` |
 
-El nombre del parquet oficial se conserva por compatibilidad con el pipeline
-existente, pero la columna `source_model` y la provenance identifican el
-metodo real como `normalizing_flow`.
+## Modelo oficial
+
+- **Official model:** Normalizing Flow / RealNVP
+- **Official output:** `normalizing_flow_seed42_normalized.parquet`
+- **Architecture:** RealNVP + ActNorm + affine coupling + fixed permutations
+- **Training:** configured epochs = 10000, completed epochs = 289, best epoch = 89, early stopping patience = 200
+- **Selection:** NLL minima sobre `donor_validation` (donor_validation negative log-likelihood)
+- **Data:** `donor_train` canonico + `donor_validation` canonico (SHA256 verificados en training)
+
+### Sin leakage
+
+- NO NVDA
+- NO utility
+- NO RMSE/MAE
+- NO test selection
+- NO physical filtering
+- NO calibration antes de fidelity
 
 ## Ejecutar
 
@@ -55,10 +69,19 @@ El entrenamiento crea:
 
 La generacion crea:
 
-- `outputs/bootstrap_jitter_seed42_normalized.parquet`
-- `outputs/bootstrap_jitter_seed42_normalized.provenance.json`
+- `outputs/normalizing_flow_seed42_normalized.parquet`
+- `outputs/normalizing_flow_seed42_normalized.provenance.json`
 
 ## Notas
 
-El antiguo `temporal_jitter_0p40_rho0p85` queda como experimento historico y
-baseline fuerte, pero no satisface el rol oficial `normalizing_flow`.
+`generadores/david/scripts/experiment_normalized.py` y
+`generadores/david/scripts/plot_experiment_diagnostics.py`, junto con todo lo
+que hay bajo `experiments/`, pertenecen al antiguo experimento temporal-jitter
+/ candidate-search (incluido `temporal_jitter_0p40_rho0p85`).
+
+**LEGACY. NOT FINAL MODEL. NOT USED IN FINAL EXPERIMENT.**
+
+Sus metricas de RMSE/utility/fidelity no son oficiales y no deben
+presentarse como resultados del modelo final. Ese script ya no tiene
+capacidad de escribir ni sustituir el output oficial (`--promote` fue
+eliminado).

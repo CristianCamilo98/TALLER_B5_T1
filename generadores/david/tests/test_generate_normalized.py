@@ -80,7 +80,7 @@ def test_default_output_path_is_david_official_location():
         / "generadores"
         / "david"
         / "outputs"
-        / "bootstrap_jitter_seed42_normalized.parquet"
+        / "normalizing_flow_seed42_normalized.parquet"
     )
 
 
