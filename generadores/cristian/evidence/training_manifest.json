@@ -1,0 +1,87 @@
+{
+  "document": "cristian_wgan_gp_training_manifest",
+  "generated_at_utc": "2026-09-02T16:45:00+00:00",
+  "official_training_run": {
+    "model": "wgan_gp",
+    "epochs_executed": 300,
+    "epoch_index_range": "0..299",
+    "batch_size": 64,
+    "declared_seed": 42,
+    "latent_dim": 100,
+    "n_critic": 5,
+    "lambda_gp": 10.0,
+    "learning_rate": 0.0001,
+    "n_train_windows": 4910,
+    "started_at_utc": "2026-08-30T16:58:22.423800+00:00",
+    "training_notebook": "generadores/cristian/notebooks/02_train_wgan_gp.ipynb",
+    "training_notebook_epochs_setting": 300
+  },
+  "config_not_executed": {
+    "path": "generadores/cristian/configs/wgan_gp.yaml",
+    "epochs_listed": 5000,
+    "note": "5000 epochs in yaml is historical/default config; the official run that produced the published output used 300 epochs."
+  },
+  "official_output": {
+    "path": "generadores/cristian/outputs/synthetic_seed42_n5000_normalized.parquet",
+    "sha256": "135503132f19f8d856e89b595cbc283baafc29864e2fb042d99bc12bfe892123",
+    "rows": 5000,
+    "training_seed": 42,
+    "space": "global_channel_normalized"
+  },
+  "OFFICIAL_HISTORY_FOUND": true,
+  "official_history_source": "generadores/cristian/artifacts/seed_42/loss_history.csv",
+  "official_history_rows": 300,
+  "official_history_epoch_range": "0..299",
+  "OFFICIAL_CHECKPOINT_FOUND": true,
+  "official_checkpoint": {
+    "path": "generadores/cristian/artifacts/seed_42/checkpoints/generator_epoch_00299.keras",
+    "epoch": 299,
+    "sha256": "5392083d1cf0e9c8306c2e3136c21608aad8f26f43e7578beeab398322dc7cc0",
+    "note": "Checkpoint not committed (gitignored); SHA256 recorded here."
+  },
+  "generation_provenance": {
+    "script": "generadores/cristian/scripts/generate_synthetic.py",
+    "run_dir": "generadores/cristian/artifacts/seed_42",
+    "checkpoint_resolution": "last generator_epoch_*.keras in checkpoints/",
+    "resolved_checkpoint": "generadores/cristian/artifacts/seed_42/checkpoints/generator_epoch_00299.keras",
+    "normalizer": "generadores/cristian/artifacts/seed_42/normalizer.json",
+    "normalizer_sha256": "f630889c9e0f79e4fc1c7e7173bbcc12eccb6448efa1a65b567530ff67e22095"
+  },
+  "donor_train": {
+    "path": "data/features/windows/donor_train.parquet",
+    "rows": 4910,
+    "logical_shape": [4910, 65, 3],
+    "sha256_local_training": "b92a36a01b1931397d9a2c88c0f3473f224586b0193b0aefbb4e47f12eb00eca",
+    "sha256_canonical_current": "5f1e33f69b02bad86d89dcc2f67a1018cef68aaeacfbf72c310a1b7902fc268f",
+    "bytes_identical": false,
+    "same_window_identifiers": true,
+    "scientific_comparison": {
+      "max_abs_diff": 1.506e-06,
+      "mean_abs_diff": 6.742e-08,
+      "fraction_elements_gt_1e-6": 0.0006,
+      "allclose_atol_1e-5": true,
+      "allclose_atol_1e-12": false,
+      "channel_means_equivalent": true,
+      "channel_stds_ddof0_equivalent": true
+    },
+    "verdict": "SAME_SCIENTIFIC_DATA",
+    "RETRAIN_REQUIRED": false
+  },
+  "normalization": {
+    "method": "global_channel_zscore",
+    "fit_axes": [0, 1],
+    "ddof": 0,
+    "fit_dtype": "float64",
+    "std_threshold": 1e-08,
+    "zero_variance_policy": "replace sigma with 1.0 when sigma < threshold",
+    "normalizer_path": "generadores/cristian/artifacts/seed_42/normalizer.json",
+    "normalizer_sha256": "f630889c9e0f79e4fc1c7e7173bbcc12eccb6448efa1a65b567530ff67e22095",
+    "verifiable_from_local_donor": true
+  },
+  "seed_reproducibility": {
+    "SEED_REPRODUCIBILITY": "NOT_BITWISE_GUARANTEED",
+    "reason": "Generator and critic are constructed in WGAN_GP.__init__() before tf.keras.utils.set_random_seed() is called in train().",
+    "impact": "Limitation on exact bitwise retrain reproducibility; does not invalidate the published output.",
+    "generation_seed_location": "generate_synthetic_for_seed() sets seed before noise sampling"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "official_synthetic_output_sha256": "135503132f19f8d856e89b595cbc283baafc29864e2fb042d99bc12bfe892123",
+  "generator_checkpoint_sha256": "5392083d1cf0e9c8306c2e3136c21608aad8f26f43e7578beeab398322dc7cc0",
+  "normalizer_sha256": "f630889c9e0f79e4fc1c7e7173bbcc12eccb6448efa1a65b567530ff67e22095",
+  "loss_history_sha256": "782d0a8a5d995a4b4bec1889036ef3f390ca9152114659cce877107f661db2",
+  "training_convergence_png_sha256": "6f8544f798c4e6bd20c50dbed5bd6167c893d2e11b0f48b96228db7b2501fd59",
+  "evidence_chain": [
+    "data/features/windows/donor_train.parquet (4910 windows, local SHA b92a36a0...)",
+    "fit normalizer -> artifacts/seed_42/normalizer.json",
+    "notebook 02_train_wgan_gp.ipynb, EPOCHS=300, seed=42, batch=64 -> WGAN-GP training",
+    "loss_history.csv (300 rows, epochs 0..299) + generator_epoch_00299.keras",
+    "generate_synthetic.py --seed 42 -> synthetic_seed42_n5000_normalized.parquet"
+  ],
+  "verified_claims": [
+    "Official training run: 300 epochs (not 5000)",
+    "Official checkpoint: generator_epoch_00299.keras",
+    "Donor scientific verdict: SAME_SCIENTIFIC_DATA",
+    "RETRAIN_REQUIRED: NO",
+    "Output SHA256 unchanged on master"
+  ],
+  "explicitly_not_claimed": [
+    "5000 training epochs (yaml default only; run executed 300)",
+    "Byte-identical donor_train.parquet vs canonical SHA",
+    "Bit-exact retrain reproducibility (seed set after model construction)",
+    "Checkpoint .keras file in git (SHA only; file gitignored locally)"
+  ]
+}
