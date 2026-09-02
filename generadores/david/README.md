@@ -1,10 +1,14 @@
-# Generador David - Normalized Temporal Jitter
+# Generador David - RealNVP Normalizing Flow
 
-Cuarto generador simple del taller. Produce ventanas sinteticas en el espacio
-comun `global_channel_normalized` mediante `bootstrap_resample +
-temporal_correlated_gaussian_jitter`: remuestrea ventanas reales de
-`donor_train` ya normalizadas y anade ruido gaussiano AR(1) correlacionado por
-canales.
+Cuarto generador oficial del taller. Produce ventanas sinteticas en el espacio
+comun `global_channel_normalized` mediante un Normalizing Flow RealNVP con
+ActNorm aprendible, capas de acoplamiento afin y permutaciones fijas entre
+bloques.
+
+El modelo tiene arquitectura neuronal entrenable, optimizador Adam,
+checkpoint, likelihood bajo prior normal estandar y calculo exacto del
+log-det-Jacobian de cada transformacion invertible. El entrenamiento usa solo
+`donor_train` y la seleccion de checkpoint usa solo NLL sobre `donor_validation`.
 
 ## Contrato
 
@@ -15,73 +19,46 @@ canales.
 | Shape logico | `5000 x 65 x 3` |
 | Canales | `log_return`, `log_high_low_range`, `log1p_volume` |
 | Seed oficial | `42` |
-| Source model | `temporal_jitter_0p40_rho0p85` |
-| Ruido | `noise_scale = 0.40` |
-| Persistencia temporal | `rho = 0.85` |
-| Espacio | `global_channel_normalized` |
+| Source model | `normalizing_flow` |
+| Arquitectura | RealNVP, ActNorm, affine coupling, fixed permutations, MLP tanh |
+| Objetivo | negative log-likelihood |
+| Entrenamiento default | 10000 epochs, early stopping patience 200 |
+| Regularizacion default | Adam lr 5e-4, weight decay 5e-5 |
+| Sampling default | temperature 1.0 desde la distribucion base normal |
 | Output | `outputs/bootstrap_jitter_seed42_normalized.parquet` |
 
-El parquet oficial contiene exactamente las columnas canonicas:
-`synthetic_id`, `source_model`, `training_seed`, `space`, `window_length`,
-`n_channels`, `channel_order`, `features_flat`.
-
-El nombre del fichero conserva `bootstrap_jitter` por compatibilidad con el
-pipeline comun ya cableado; la columna `source_model` y el JSON de provenance
-identifican el algoritmo real usado.
+El nombre del parquet oficial se conserva por compatibilidad con el pipeline
+existente, pero la columna `source_model` y la provenance identifican el
+metodo real como `normalizing_flow`.
 
 ## Ejecutar
 
 Desde la raiz del repositorio:
 
 ```powershell
+python generadores/david/scripts/train_normalizing_flow.py
 python generadores/david/scripts/generate_normalized.py
 python common_pipeline/01_contract/validate_outputs.py
 ```
 
-Para reproducir el sweep de mejoras:
+No se usa NVDA para training, validation, sampling, filtro, seleccion de
+checkpoint ni ajuste de hiperparametros.
 
-```powershell
-python generadores/david/scripts/experiment_normalized.py
-python generadores/david/scripts/plot_experiment_diagnostics.py
-```
+## Artefactos
 
-Si faltan los parquets canonicos de datos, regenerar primero:
+El entrenamiento crea:
 
-```powershell
-python scripts/download_ohlcv_raw.py --config configs/experiment.yaml --reuse-snapshot
-python scripts/clean_ohlcv.py --config configs/experiment.yaml
-python scripts/assign_splits.py --config configs/experiment.yaml
-python scripts/build_features_windows.py --config configs/experiment.yaml
-```
+- `artifacts/checkpoints/normalizing_flow_seed42.npz`
+- `artifacts/loss_history.csv`
+- `artifacts/training_manifest_seed42.json`
+- `artifacts/normalizing_flow_convergence.png`
 
-Si no existe snapshot raw local, la primera linea debe ejecutarse sin
-`--reuse-snapshot` para descargar de yfinance.
+La generacion crea:
 
-## Interpretacion
+- `outputs/bootstrap_jitter_seed42_normalized.parquet`
+- `outputs/bootstrap_jitter_seed42_normalized.provenance.json`
 
-Este modelo no intenta superar arquitectonicamente a VAE, WGAN-GP o Diffusion.
-Sirve como linea base fuerte y reproducible: mide cuanto aporta un modelo
-neuronal frente a copiar estructura empirica donor y perturbarla localmente.
+## Notas
 
-Se probaron variantes de ruido independiente, ruido correlacionado, ruido
-temporal, bootstrap por regimen, mixup entre vecinos de regimen y GMM en PCA.
-La candidata promovida fue `temporal_jitter_0p40_rho0p85` porque, entre las
-variantes con 0% de rechazo fisico, fue la que mejoro mas C2ST, Wasserstein y
-RMSE downstream frente al baseline inicial. El coste observado es una peor
-ACF de retornos: el modelo gana diversidad y utilidad, pero suaviza/perturba
-mas la estructura temporal fina.
-
-Comparacion principal frente al baseline inicial `noise_scale=0.05`:
-
-| metrica | baseline inicial | David mejorado |
-|---|---:|---:|
-| C2ST AUC, menor es mejor hacia 0.5 | 0.8971 | 0.8651 |
-| Wasserstein medio | 0.3743 | 0.3439 |
-| return ACF MAE | 0.0358 | 0.0575 |
-| ventanas invalidas post-calibracion | 0/5000 | 0/5000 |
-| mejor RMSE downstream | 0.2627 | 0.2401 |
-
-El generador no usa `nvda_visible` ni `nvda_test` para construir ventanas. La
-calibracion a NVDA-like, el rechazo de ventanas fisicamente invalidas y la
-evaluacion downstream sobre `nvda_test` pertenecen al pipeline comun
-`common_pipeline/03_utility`.
+El antiguo `temporal_jitter_0p40_rho0p85` queda como experimento historico y
+baseline fuerte, pero no satisface el rol oficial `normalizing_flow`.
