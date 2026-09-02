@@ -1,0 +1,202 @@
+{
+  "snapshot_type": "STRICT_FINAL",
+  "scientific_results_frozen": true,
+  "created_utc": "2026-09-02T17:34:19Z",
+  "master_git_sha_used_for_run": "2bef27364907d9ae8e01b4bfea1673749a1d8488",
+  "certified_registry_sha256": "7308c264cbd032f82db456b4dd2bdef749aae8c45bfdce80bdca3a9da23aa256",
+  "utility_run_id": "utility_7308c264cbd0",
+  "fidelity_run_id": "results",
+  "methods": [
+    "bootstrap_jitter",
+    "cristian",
+    "daniel",
+    "david",
+    "marco"
+  ],
+  "neural_models": 4,
+  "simple_baselines": 1,
+  "fidelity_reference_windows": 380,
+  "fidelity_synthetic_windows_per_method": 380,
+  "utility_visible_real_windows": 62,
+  "utility_test_windows": 150,
+  "synthetic_ratios": [0.25, 0.50, 0.75],
+  "seeds": [42, 123, 2026],
+  "raw_utility_rows": 46,
+  "summary_utility_rows": 16,
+  "scientific_code_changed": false,
+  "methodology_changed": false,
+  "source_manifests": {
+    "fidelity": "common_pipeline/02_fidelity/results/evaluation_manifest.json",
+    "utility": "common_pipeline/03_utility/results/runs/utility_7308c264cbd0/run_manifest.json"
+  },
+  "excluded_from_snapshot": {
+    "calibrated_pools_npz": "runtime/intermediate cache under common_pipeline/03_utility/results/runs/utility_7308c264cbd0/calibrated_pools/, not included"
+  },
+  "files": [
+    {
+      "relative_path": "fidelity/tables/abs_return_acf.csv",
+      "sha256": "20527b17d198c36899a9fdb77e4a4e099ac5c1bf8b4bf37eff4764610bc37629",
+      "source_path": "common_pipeline/02_fidelity/results/tables/abs_return_acf.csv"
+    },
+    {
+      "relative_path": "fidelity/tables/c2st_results.csv",
+      "sha256": "37140dc76cf5c6399698e96f09bc97e2d9464d88e35cc262989153a9c2d0508d",
+      "source_path": "common_pipeline/02_fidelity/results/tables/c2st_results.csv"
+    },
+    {
+      "relative_path": "fidelity/tables/channel_correlations.csv",
+      "sha256": "92e0b948072105cfac76ac6e9737b888c1b213b1974fa289b2ad32ec10660e12",
+      "source_path": "common_pipeline/02_fidelity/results/tables/channel_correlations.csv"
+    },
+    {
+      "relative_path": "fidelity/tables/correlation_errors.csv",
+      "sha256": "c9ca569e9d1188d8d1c2823af26bcca1bb2689dd241e55ea3320f6878d042133",
+      "source_path": "common_pipeline/02_fidelity/results/tables/correlation_errors.csv"
+    },
+    {
+      "relative_path": "fidelity/tables/evaluation_subset_indices.csv",
+      "sha256": "75ec865cace7324ce3795d7638c08f8b36a8d4ceb105c154f443948e6d5c2bb4",
+      "source_path": "common_pipeline/02_fidelity/results/tables/evaluation_subset_indices.csv"
+    },
+    {
+      "relative_path": "fidelity/tables/joint_tsne_coordinates.csv",
+      "sha256": "18479cbb32b0d6d1240cc2f08a826c91f21d3ba00c2d79f34f7195e629e3baf5",
+      "source_path": "common_pipeline/02_fidelity/results/tables/joint_tsne_coordinates.csv"
+    },
+    {
+      "relative_path": "fidelity/tables/marginal_statistics.csv",
+      "sha256": "bdf4fa5478bb668a481057b7a41b92beb686cb68232da4c496492c23dcab29ed",
+      "source_path": "common_pipeline/02_fidelity/results/tables/marginal_statistics.csv"
+    },
+    {
+      "relative_path": "fidelity/tables/nearest_neighbor.csv",
+      "sha256": "9023f428636697d58cd1ca3a07003bd2bbe2082b8172ae33eab7e37d16278ba4",
+      "source_path": "common_pipeline/02_fidelity/results/tables/nearest_neighbor.csv"
+    },
+    {
+      "relative_path": "fidelity/tables/return_acf.csv",
+      "sha256": "6fd98c0f9f71fa4f1a60f64d2686dd0b43aeab5ed254688f2fa8508fdc0e8e83",
+      "source_path": "common_pipeline/02_fidelity/results/tables/return_acf.csv"
+    },
+    {
+      "relative_path": "fidelity/tables/wasserstein.csv",
+      "sha256": "2b1760a85309c55c4ce1eeff737451506bfde342e33d84d1e4d26531e6ca4a57",
+      "source_path": "common_pipeline/02_fidelity/results/tables/wasserstein.csv"
+    },
+    {
+      "relative_path": "fidelity/figures/abs_return_acf.png",
+      "sha256": "d9d49fdd2c1e573dd8bb573ec0729436b50c5b99920625ef6470d0dcd1403323",
+      "source_path": "common_pipeline/02_fidelity/results/figures/abs_return_acf.png"
+    },
+    {
+      "relative_path": "fidelity/figures/c2st_auc.png",
+      "sha256": "56e59abc4f77e25766e80b910c3157d3f357fa6d1451d8ffa28f583894ce0c4e",
+      "source_path": "common_pipeline/02_fidelity/results/figures/c2st_auc.png"
+    },
+    {
+      "relative_path": "fidelity/figures/channel_correlations.png",
+      "sha256": "a8da79d35f01edfb91e4dba6d1e71e6e8b71b95194f5a88872ff8661980260e4",
+      "source_path": "common_pipeline/02_fidelity/results/figures/channel_correlations.png"
+    },
+    {
+      "relative_path": "fidelity/figures/fidelity_scorecard.png",
+      "sha256": "7fa1b631e953fae886e960439c727cff7428abbb5be256568558c1ecb7c3d8b3",
+      "source_path": "common_pipeline/02_fidelity/results/figures/fidelity_scorecard.png"
+    },
+    {
+      "relative_path": "fidelity/figures/joint_tsne.png",
+      "sha256": "27fe81de9a18280584e344fc3cbb4180735e21fac284909e2bd74b118cd66a27",
+      "source_path": "common_pipeline/02_fidelity/results/figures/joint_tsne.png"
+    },
+    {
+      "relative_path": "fidelity/figures/marginals_log1p_volume.png",
+      "sha256": "27236d13409db767ec3c22a0596562fba771b7d9ed340a789dc2805a1fef6bba",
+      "source_path": "common_pipeline/02_fidelity/results/figures/marginals_log1p_volume.png"
+    },
+    {
+      "relative_path": "fidelity/figures/marginals_log_high_low_range.png",
+      "sha256": "0658aa3ad093fbb50d6e14c9be095b10f977bc96b2c8c41b0c09a12b8e564225",
+      "source_path": "common_pipeline/02_fidelity/results/figures/marginals_log_high_low_range.png"
+    },
+    {
+      "relative_path": "fidelity/figures/marginals_log_return.png",
+      "sha256": "da27dd2fa8afb15773f53140d39dc4149be8d0d43ceafd3bb5f596f5fc5b2b9e",
+      "source_path": "common_pipeline/02_fidelity/results/figures/marginals_log_return.png"
+    },
+    {
+      "relative_path": "fidelity/figures/nearest_neighbor.png",
+      "sha256": "c789ccf7c0d12e2568b4b643efca862116880d7ef3cf958117881f8f3615fbe1",
+      "source_path": "common_pipeline/02_fidelity/results/figures/nearest_neighbor.png"
+    },
+    {
+      "relative_path": "fidelity/figures/return_acf.png",
+      "sha256": "644169e5686875401bf3a67f979975de8f16a2e77e6c6c05cb339aefa833d83b",
+      "source_path": "common_pipeline/02_fidelity/results/figures/return_acf.png"
+    },
+    {
+      "relative_path": "fidelity/evaluation_manifest.json",
+      "sha256": "7068cff086a9487cf43318204039b680d0c1ba00074dbbf499ad255629e2372c",
+      "source_path": "common_pipeline/02_fidelity/results/evaluation_manifest.json"
+    },
+    {
+      "relative_path": "utility/tables/nvda_calibration.csv",
+      "sha256": "d49200cd5d6c3285f2c2c1585be621136af808abe5a04f5f315f392670dbfec9",
+      "source_path": "common_pipeline/03_utility/results/runs/utility_7308c264cbd0/tables/nvda_calibration.csv"
+    },
+    {
+      "relative_path": "utility/tables/physical_validity.csv",
+      "sha256": "70848edd9f665653bebb7fe5d8d9175c2ac1f407f0b1d78fb8ddad00e96c8892",
+      "source_path": "common_pipeline/03_utility/results/runs/utility_7308c264cbd0/tables/physical_validity.csv"
+    },
+    {
+      "relative_path": "utility/tables/mixture_design.csv",
+      "sha256": "3101febf4e42264a3f8ceb935cb3c1ef320713b1595cb2eb0a9fd39c38daa6e5",
+      "source_path": "common_pipeline/03_utility/results/runs/utility_7308c264cbd0/tables/mixture_design.csv"
+    },
+    {
+      "relative_path": "utility/tables/downstream_results_raw.csv",
+      "sha256": "a9fd39174c68f06a0cbde6f92a8ce992b8a5c7cd70c218ffcf22adba9c172b87",
+      "source_path": "common_pipeline/03_utility/results/runs/utility_7308c264cbd0/tables/downstream_results_raw.csv"
+    },
+    {
+      "relative_path": "utility/tables/downstream_results_summary.csv",
+      "sha256": "82ee5773f4cb40152feb482aefffc30e17ca030ae0cd31d35968072e1c45ce45",
+      "source_path": "common_pipeline/03_utility/results/runs/utility_7308c264cbd0/tables/downstream_results_summary.csv"
+    },
+    {
+      "relative_path": "utility/tables/interpretation_summary.csv",
+      "sha256": "7cae31884d5bc813594bf14bd3131460c8b89bea5db55671a932c84ad797d4d3",
+      "source_path": "common_pipeline/03_utility/results/runs/utility_7308c264cbd0/tables/interpretation_summary.csv"
+    },
+    {
+      "relative_path": "utility/figures/physical_rejection_rates.png",
+      "sha256": "ce8e4a2541c4321d677b6068ad42944c78f5b6f829e19b6b1c4be0bc0fa071e6",
+      "source_path": "common_pipeline/03_utility/results/runs/utility_7308c264cbd0/figures/physical_rejection_rates.png"
+    },
+    {
+      "relative_path": "utility/figures/rmse_vs_synthetic_ratio.png",
+      "sha256": "58cc42b6f54577e60a57500163fe8e15ee1ee7c1b8882d376606da252bb4f980",
+      "source_path": "common_pipeline/03_utility/results/runs/utility_7308c264cbd0/figures/rmse_vs_synthetic_ratio.png"
+    },
+    {
+      "relative_path": "utility/figures/mae_vs_synthetic_ratio.png",
+      "sha256": "7627050ba69d7a0f9dfbd3539697c09ee68d036153e9e9a7f93c82bc9c54a319",
+      "source_path": "common_pipeline/03_utility/results/runs/utility_7308c264cbd0/figures/mae_vs_synthetic_ratio.png"
+    },
+    {
+      "relative_path": "utility/figures/rmse_improvement_heatmap.png",
+      "sha256": "f7a1ff746811d9a8f9acf932e80eb34838453cd40d0aaa05ab5d336780f7c19e",
+      "source_path": "common_pipeline/03_utility/results/runs/utility_7308c264cbd0/figures/rmse_improvement_heatmap.png"
+    },
+    {
+      "relative_path": "utility/figures/utility_summary.png",
+      "sha256": "9614595c87f8433af08028a100b9591e0c2d768f793c27c8255d93129fabd008",
+      "source_path": "common_pipeline/03_utility/results/runs/utility_7308c264cbd0/figures/utility_summary.png"
+    },
+    {
+      "relative_path": "utility/run_manifest.json",
+      "sha256": "15ee0bf4eac1f653a7c3728705e497a0931e0cb01fe9da47111e0fca72ab31b3",
+      "source_path": "common_pipeline/03_utility/results/runs/utility_7308c264cbd0/run_manifest.json"
+    }
+  ]
+}
