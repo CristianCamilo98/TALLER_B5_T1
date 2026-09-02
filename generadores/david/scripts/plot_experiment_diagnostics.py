@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
 """Plot David experiment diagnostics.
 
-The figures are explanatory artifacts: they do not change the official output.
-They help show why ``temporal_jitter_0p40_rho0p85`` was selected and where the
-tradeoffs start to become risky.
+LEGACY EXPERIMENT
+NOT PART OF FINAL NORMALIZING FLOW
+DO NOT USE FOR MODEL SELECTION
+DO NOT PROMOTE OUTPUTS
+
+The figures are explanatory artifacts from the historical temporal-jitter
+candidate search that predates the official RealNVP Normalizing Flow. They
+do not change the official output and must not be presented as describing
+the final model. They help show why ``temporal_jitter_0p40_rho0p85`` was
+selected among legacy candidates and where the tradeoffs start to become
+risky.
 """
 
 from __future__ import annotations
@@ -39,7 +47,7 @@ RESULTS_DIR = EXPERIMENT_ROOT / "results"
 FIGURES_DIR = EXPERIMENT_ROOT / "figures"
 EXPERIMENT_OUTPUTS_DIR = EXPERIMENT_ROOT / "outputs"
 OFFICIAL_DAVID_PATH = (
-    REPO_ROOT / "generadores" / "david" / "outputs" / "bootstrap_jitter_seed42_normalized.parquet"
+    REPO_ROOT / "generadores" / "david" / "outputs" / "normalizing_flow_seed42_normalized.parquet"
 )
 COMMON_BOOTSTRAP_PATH = (
     REPO_ROOT / "common_pipeline" / "01_contract" / "outputs" / "bootstrap_jitter_seed42_normalized.parquet"

@@ -1,15 +1,24 @@
 #!/usr/bin/env python3
 """Generate and evaluate improved normalized candidates for David.
 
-The official David output stays in ``generadores/david/outputs``. This script
+LEGACY EXPERIMENT
+NOT PART OF FINAL NORMALIZING FLOW
+DO NOT USE FOR MODEL SELECTION
+DO NOT PROMOTE OUTPUTS
+
+This module belongs to the historical temporal-jitter / candidate-search
+experiment that predates the official RealNVP Normalizing Flow. It is kept
+only as historical evidence. The official David output lives in
+``generadores/david/outputs`` and is produced exclusively by
+``train_normalizing_flow.py`` + ``generate_normalized.py``. This script
 writes experimental Parquets under ``generadores/david/experiments`` so the
-common contract discovery never mistakes them for deliverables.
+common contract discovery never mistakes them for deliverables, and it has
+no capability to write or overwrite the official output.
 """
 
 from __future__ import annotations
 
 import argparse
-import hashlib
 import importlib
 import json
 import sys
@@ -61,7 +70,7 @@ downstream_ridge = importlib.import_module("common_pipeline.03_utility.downstrea
 EXPERIMENT_ROOT = REPO_ROOT / "generadores" / "david" / "experiments"
 EXPERIMENT_OUTPUTS_DIR = EXPERIMENT_ROOT / "outputs"
 EXPERIMENT_RESULTS_DIR = EXPERIMENT_ROOT / "results"
-OFFICIAL_OUTPUT = REPO_ROOT / "generadores" / "david" / "outputs" / "bootstrap_jitter_seed42_normalized.parquet"
+OFFICIAL_OUTPUT = REPO_ROOT / "generadores" / "david" / "outputs" / "normalizing_flow_seed42_normalized.parquet"
 SEED = 42
 
 
@@ -426,45 +435,6 @@ def write_candidate(
     return CandidateArtifact(spec=spec, path=path, sha256=digest, windows=windows, seed=seed)
 
 
-def write_official_output(
-    windows: np.ndarray,
-    *,
-    source_model: str,
-    selected_from: str,
-    training_seed: int = SEED,
-    family: str | None = None,
-    noise_scale: float | None = None,
-    rho: float | None = None,
-) -> Path:
-    frame = make_canonical_frame(windows, source_model=source_model, training_seed=training_seed)
-    OFFICIAL_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    frame.to_parquet(OFFICIAL_OUTPUT, index=False)
-    digest = sha256_file(OFFICIAL_OUTPUT)
-    write_json(
-        OFFICIAL_OUTPUT.with_suffix(".provenance.json"),
-        {
-            "source_model": source_model,
-            "family": family,
-            "algorithm": source_model,
-            "selected_from_experiment": selected_from,
-            "seed": training_seed,
-            "training_seed": training_seed,
-            "noise_scale": noise_scale,
-            "rho": rho,
-            "space": GLOBAL_NORMALIZED_SPACE,
-            "channel_order": list(CHANNEL_ORDER),
-            "mean": list(CANONICAL_MEAN),
-            "std": list(CANONICAL_STD),
-            "donor_train_path": "data/features/windows/donor_train.parquet",
-            "donor_train_sha256": sha256_file(DONOR_TRAIN_PATH),
-            "n_windows": int(len(windows)),
-            "logical_shape": [int(len(windows)), WINDOW_LENGTH, N_CHANNELS],
-            "parquet_sha256": digest,
-        },
-    )
-    return OFFICIAL_OUTPUT
-
-
 def _load_candidate_windows(path: Path) -> np.ndarray:
     frame = pd.read_parquet(path, columns=["features_flat"])
     return np.stack(
@@ -665,11 +635,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", type=Path, default=EXPERIMENT_OUTPUTS_DIR)
     parser.add_argument("--results-dir", type=Path, default=EXPERIMENT_RESULTS_DIR)
     parser.add_argument(
-        "--promote",
-        choices=candidate_names(),
-        help="Write the selected candidate to David's official output path.",
-    )
-    parser.add_argument(
         "--skip-generation",
         action="store_true",
         help="Reuse candidate Parquets already present in the experiment output directory.",
@@ -710,20 +675,6 @@ def main(argv: list[str] | None = None) -> int:
             ]
         ].to_string(index=False)
     )
-
-    if args.promote:
-        selected = next(artifact for artifact in artifacts if artifact.spec.name == args.promote)
-        official_path = write_official_output(
-            selected.windows,
-            source_model=selected.spec.name,
-            selected_from=selected.path.relative_to(REPO_ROOT).as_posix(),
-            training_seed=selected.seed,
-            family=selected.spec.family,
-            noise_scale=selected.spec.noise_scale,
-            rho=selected.spec.rho,
-        )
-        digest = hashlib.sha256(official_path.read_bytes()).hexdigest()
-        print(f"\nPromoted {args.promote} to {official_path} sha256={digest}")
 
     return 0
 
