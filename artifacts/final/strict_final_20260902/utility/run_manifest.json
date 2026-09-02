@@ -1,0 +1,312 @@
+{
+  "run_id": "utility_7308c264cbd0",
+  "run_mode": "STRICT_FINAL",
+  "is_final_run": true,
+  "official_generators_present": 4,
+  "official_generators_required": 4,
+  "simple_baselines_present": 1,
+  "simple_baselines_required": 1,
+  "missing_official_roles": [],
+  "included_methods": [
+    "bootstrap_jitter",
+    "cristian",
+    "daniel",
+    "david",
+    "marco"
+  ],
+  "excluded_certified_methods": [],
+  "role_assessments": [
+    {
+      "owner": "cristian",
+      "required_role": "wgan_gp",
+      "method_id": "cristian",
+      "source_model": "wgan_gp",
+      "structural_status": "PASS",
+      "official_role_status": "PASS",
+      "donor_lineage_status": "NOT_VERIFIABLE"
+    },
+    {
+      "owner": "daniel",
+      "required_role": "ddpm",
+      "method_id": "daniel",
+      "source_model": "diffusion_ddpm",
+      "structural_status": "PASS",
+      "official_role_status": "PASS",
+      "donor_lineage_status": "NOT_VERIFIABLE"
+    },
+    {
+      "owner": "marco",
+      "required_role": "vae",
+      "method_id": "marco",
+      "source_model": "marco_vae",
+      "structural_status": "PASS",
+      "official_role_status": "PASS",
+      "donor_lineage_status": "NOT_VERIFIABLE"
+    },
+    {
+      "owner": "david",
+      "required_role": "normalizing_flow",
+      "method_id": "david",
+      "source_model": "normalizing_flow",
+      "structural_status": "PASS",
+      "official_role_status": "PASS",
+      "donor_lineage_status": "CANONICAL"
+    }
+  ],
+  "lineage_warnings": [
+    "cristian: donor lineage NOT_VERIFIABLE",
+    "daniel: donor lineage NOT_VERIFIABLE",
+    "marco: donor lineage NOT_VERIFIABLE"
+  ],
+  "strict_complete": true,
+  "git_commit": "2bef27364907d9ae8e01b4bfea1673749a1d8488",
+  "certified_registry_path": "common_pipeline/01_contract/results/certified_outputs.json",
+  "certified_registry_sha256": "7308c264cbd032f82db456b4dd2bdef749aae8c45bfdce80bdca3a9da23aa256",
+  "allow_partial": false,
+  "input_methods": [
+    {
+      "method_id": "bootstrap_jitter",
+      "method_family": "simple_baseline",
+      "source_model": "bootstrap_jitter",
+      "source_directory": "common_pipeline/01_contract",
+      "path": "common_pipeline/01_contract/outputs/bootstrap_jitter_seed42_normalized.parquet",
+      "sha256": "846a6e2306922704e8dec39445bed0f2a9b146fd57dd793efe0f647a499395fe",
+      "rows": 5000,
+      "logical_shape": [
+        5000,
+        65,
+        3
+      ],
+      "training_seed": 42,
+      "space": "global_channel_normalized",
+      "window_length": 65,
+      "n_channels": 3,
+      "channel_order": [
+        "log_return",
+        "log_high_low_range",
+        "log1p_volume"
+      ],
+      "features_flat_length": 195,
+      "normalization_status": "NORMALIZATION_NUMERICALLY_MATCHES",
+      "contract_status": "PASS",
+      "donor_lineage_status": "CANONICAL",
+      "expected_role": "bootstrap_jitter",
+      "official_role_status": "PASS"
+    },
+    {
+      "method_id": "cristian",
+      "method_family": "neural_generator",
+      "source_model": "wgan_gp",
+      "source_directory": "generadores/cristian",
+      "path": "generadores/cristian/outputs/synthetic_seed42_n5000_normalized.parquet",
+      "sha256": "135503132f19f8d856e89b595cbc283baafc29864e2fb042d99bc12bfe892123",
+      "rows": 5000,
+      "logical_shape": [
+        5000,
+        65,
+        3
+      ],
+      "training_seed": 42,
+      "space": "global_channel_normalized",
+      "window_length": 65,
+      "n_channels": 3,
+      "channel_order": [
+        "log_return",
+        "log_high_low_range",
+        "log1p_volume"
+      ],
+      "features_flat_length": 195,
+      "normalization_status": "NORMALIZATION_PROVENANCE_NOT_VERIFIABLE",
+      "contract_status": "PASS",
+      "donor_lineage_status": "NOT_VERIFIABLE",
+      "expected_role": "wgan_gp",
+      "official_role_status": "PASS"
+    },
+    {
+      "method_id": "daniel",
+      "method_family": "neural_generator",
+      "source_model": "diffusion_ddpm",
+      "source_directory": "generadores/daniel",
+      "path": "generadores/daniel/outputs/diffusion_seed42_normalized.parquet",
+      "sha256": "bb9b5ad6b412fd785f73344cd765c56447b92de2b5827e40b3dc77d06e40a6c2",
+      "rows": 5000,
+      "logical_shape": [
+        5000,
+        65,
+        3
+      ],
+      "training_seed": 42,
+      "space": "global_channel_normalized",
+      "window_length": 65,
+      "n_channels": 3,
+      "channel_order": [
+        "log_return",
+        "log_high_low_range",
+        "log1p_volume"
+      ],
+      "features_flat_length": 195,
+      "normalization_status": "NORMALIZATION_PROVENANCE_NOT_VERIFIABLE",
+      "contract_status": "PASS",
+      "donor_lineage_status": "NOT_VERIFIABLE",
+      "expected_role": "ddpm",
+      "official_role_status": "PASS"
+    },
+    {
+      "method_id": "david",
+      "method_family": "neural_generator",
+      "source_model": "normalizing_flow",
+      "source_directory": "generadores/david",
+      "path": "generadores/david/outputs/normalizing_flow_seed42_normalized.parquet",
+      "sha256": "f36fe7ee5b79400a1567446e038fb21723e5a4b973c224c32f5a945dc66219ed",
+      "rows": 5000,
+      "logical_shape": [
+        5000,
+        65,
+        3
+      ],
+      "training_seed": 42,
+      "space": "global_channel_normalized",
+      "window_length": 65,
+      "n_channels": 3,
+      "channel_order": [
+        "log_return",
+        "log_high_low_range",
+        "log1p_volume"
+      ],
+      "features_flat_length": 195,
+      "normalization_status": "NORMALIZATION_NUMERICALLY_MATCHES",
+      "contract_status": "PASS",
+      "donor_lineage_status": "CANONICAL",
+      "expected_role": "normalizing_flow",
+      "official_role_status": "PASS"
+    },
+    {
+      "method_id": "marco",
+      "method_family": "neural_generator",
+      "source_model": "marco_vae",
+      "source_directory": "generadores/marco",
+      "path": "generadores/marco/outputs/donor_synthetic_normalized_seed42.parquet",
+      "sha256": "36f6830ffa7fae08c841fe30801b7f4caa6c4f54ea618afe39a8e9f60afd1591",
+      "rows": 5000,
+      "logical_shape": [
+        5000,
+        65,
+        3
+      ],
+      "training_seed": 42,
+      "space": "global_channel_normalized",
+      "window_length": 65,
+      "n_channels": 3,
+      "channel_order": [
+        "log_return",
+        "log_high_low_range",
+        "log1p_volume"
+      ],
+      "features_flat_length": 195,
+      "normalization_status": "NORMALIZATION_NUMERICALLY_MATCHES",
+      "contract_status": "PASS",
+      "donor_lineage_status": "NOT_VERIFIABLE",
+      "expected_role": "vae",
+      "official_role_status": "PASS"
+    }
+  ],
+  "input_parquet_sha256": {
+    "bootstrap_jitter": "846a6e2306922704e8dec39445bed0f2a9b146fd57dd793efe0f647a499395fe",
+    "cristian": "135503132f19f8d856e89b595cbc283baafc29864e2fb042d99bc12bfe892123",
+    "daniel": "bb9b5ad6b412fd785f73344cd765c56447b92de2b5827e40b3dc77d06e40a6c2",
+    "david": "f36fe7ee5b79400a1567446e038fb21723e5a4b973c224c32f5a945dc66219ed",
+    "marco": "36f6830ffa7fae08c841fe30801b7f4caa6c4f54ea618afe39a8e9f60afd1591"
+  },
+  "nvda_calibration": {
+    "source_path": "data/features/windows/nvda_visible.parquet",
+    "source_sha256": "0e6f046313b56b046d2e5f19d5cf0b7b8e0b81060a04620c2f5bb6a7b245f6d3",
+    "expected_unique_daily_observations": 126,
+    "ddof": 0,
+    "formula": "mu_NVDA + sigma_NVDA * Z_synthetic",
+    "n_unique_daily_observations": 126,
+    "start_date": "2022-07-05 00:00:00",
+    "end_date": "2022-12-30 00:00:00",
+    "mean": [
+      5.396212946509246e-05,
+      0.04438170295257568,
+      20.062803490243716
+    ],
+    "std": [
+      0.03680453075973038,
+      0.01627353295630587,
+      0.2601047781878443
+    ],
+    "table_path": "tables/nvda_calibration.csv"
+  },
+  "subsampling_seeds": [
+    42,
+    123,
+    2026
+  ],
+  "ratios": [
+    0.0,
+    0.25,
+    0.5,
+    0.75
+  ],
+  "downstream": {
+    "n_real_visible": 62,
+    "features": [
+      "rv5",
+      "rv20",
+      "rv60",
+      "mean_abs_return20",
+      "momentum20",
+      "mean_range20",
+      "mean_log_volume20",
+      "std_log_volume20"
+    ],
+    "feature_scaler_fit": "62 real visible windows only",
+    "model": "Ridge(alpha=1.0, fit_intercept=True)",
+    "metrics": [
+      "rmse",
+      "mae"
+    ]
+  },
+  "calibrated_pools": {
+    "bootstrap_jitter": {
+      "path": "calibrated_pools/bootstrap_jitter_calibrated.npz",
+      "sha256": "1339748837493f11d6c753631cdadd93a97d8f7fd4f67bf915861d8690d5b67d",
+      "valid": 5000,
+      "invalid": 0
+    },
+    "cristian": {
+      "path": "calibrated_pools/cristian_calibrated.npz",
+      "sha256": "cd2ef60be2caf944aada51b2baa02636da8f68b4441ab6fc4acecbeb0456b7ff",
+      "valid": 5000,
+      "invalid": 0
+    },
+    "daniel": {
+      "path": "calibrated_pools/daniel_calibrated.npz",
+      "sha256": "f90dab6f682c64ca31872b4865dac3c2c772e321b69fab086f1f01d91b2d5d49",
+      "valid": 5000,
+      "invalid": 0
+    },
+    "david": {
+      "path": "calibrated_pools/david_calibrated.npz",
+      "sha256": "4f894691718f3a89446ae09d74983e1da74c76a3cc7da9ce7f700a3a7993615d",
+      "valid": 4995,
+      "invalid": 5
+    },
+    "marco": {
+      "path": "calibrated_pools/marco_calibrated.npz",
+      "sha256": "cd721c39f9ded0bd01a445577bb6a7167a08b66379a200bb0c77bbdeafa1cd17",
+      "valid": 5000,
+      "invalid": 0
+    }
+  },
+  "physical_validity_table": "tables/physical_validity.csv",
+  "mixture_design_table": "tables/mixture_design.csv",
+  "downstream_results_raw": "tables/downstream_results_raw.csv",
+  "downstream_results_summary": "tables/downstream_results_summary.csv",
+  "real_only": {
+    "method_id": "REAL_ONLY",
+    "rmse": 1.479584453980657,
+    "mae": 1.1469339074022384
+  }
+}

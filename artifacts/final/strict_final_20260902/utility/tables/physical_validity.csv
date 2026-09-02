@@ -1,0 +1,6 @@
+method,generated,valid,invalid,invalid_rate
+bootstrap_jitter,5000,5000,0,0.0
+cristian,5000,5000,0,0.0
+daniel,5000,5000,0,0.0
+david,5000,4995,5,0.001
+marco,5000,5000,0,0.0

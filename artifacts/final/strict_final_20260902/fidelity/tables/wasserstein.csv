@@ -1,0 +1,16 @@
+method,channel,wasserstein_1,mean_wasserstein_across_channels
+bootstrap_jitter,log_return,0.330239588169,0.374279829152
+bootstrap_jitter,log_high_low_range,0.641530200776,0.374279829152
+bootstrap_jitter,log1p_volume,0.151069698511,0.374279829152
+cristian,log_return,0.372108670099,0.370357420968
+cristian,log_high_low_range,0.620742791682,0.370357420968
+cristian,log1p_volume,0.118220801124,0.370357420968
+daniel,log_return,0.308172434409,0.463482853331
+daniel,log_high_low_range,0.589615195109,0.463482853331
+daniel,log1p_volume,0.492660930473,0.463482853331
+david,log_return,0.378655279717,0.396188346798
+david,log_high_low_range,0.662975126846,0.396188346798
+david,log1p_volume,0.146934633831,0.396188346798
+marco,log_return,0.89941599149,0.616818345791
+marco,log_high_low_range,0.673160945321,0.616818345791
+marco,log1p_volume,0.277878100563,0.616818345791
