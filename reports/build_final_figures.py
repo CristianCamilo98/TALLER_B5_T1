@@ -109,6 +109,22 @@ plt.rcParams.update(
 created_files: list[Path] = []
 
 
+def _sanitize_svg_whitespace(path: Path) -> None:
+    """Strip trailing whitespace from every line of a matplotlib-generated SVG.
+
+    Purely textual: rstrip() per line plus a normalized trailing newline. Does
+    not touch element content, attribute values, geometry, styles, labels, or
+    dimensions -- only whitespace sitting after the last non-space character
+    on each line (matplotlib's SVG backend leaves this behind in some
+    generated `<path d="...">` attributes).
+    """
+
+    text = path.read_text(encoding="utf-8")
+    sanitized = "\n".join(line.rstrip() for line in text.splitlines()) + "\n"
+    if sanitized != text:
+        path.write_text(sanitized, encoding="utf-8")
+
+
 def save_figure(fig: plt.Figure, stem: str, *, presentation: bool, github: bool, svg: bool = True) -> None:
     if presentation:
         path_png = PRESENTATION_DIR / f"{stem}.png"
@@ -117,6 +133,7 @@ def save_figure(fig: plt.Figure, stem: str, *, presentation: bool, github: bool,
         if svg:
             path_svg = PRESENTATION_DIR / f"{stem}.svg"
             fig.savefig(path_svg, bbox_inches="tight")
+            _sanitize_svg_whitespace(path_svg)
             created_files.append(path_svg)
     if github:
         path_png = GITHUB_DIR / f"{stem}.png"
