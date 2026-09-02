@@ -1,0 +1,26 @@
+{
+  "fit_split": "donor_train",
+  "fit_axes": [
+    0,
+    1
+  ],
+  "ddof": 0,
+  "fit_dtype": "float64",
+  "channel_order": [
+    "log_return",
+    "log_high_low_range",
+    "log1p_volume"
+  ],
+  "mean": [
+    0.0008114289650906917,
+    0.02602580514891484,
+    16.06027218135258
+  ],
+  "std": [
+    0.02351550543534708,
+    0.01672428879172829,
+    1.0933253360280637
+  ],
+  "zero_variance_guard": "std == 0 -> 1e-8 (implementacion Marco; el contrato comun usa sigma < 1e-8 -> 1.0)",
+  "zero_variance_guard_triggered": false
+}

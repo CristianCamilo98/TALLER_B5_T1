@@ -1,0 +1,45 @@
+{
+  "generator": "marco_vae",
+  "architecture": "TimeVAE (Desai et al., 2022), sin condicionante",
+  "latent_dim": 8,
+  "framework": "tensorflow/keras",
+  "training_seed": 42,
+  "checkpoint": {
+    "path": "vae_donors_weights.weights.h5 (local, gitignored)",
+    "sha256": "abef3fa99ee1013ed1b81a5b9b3ad7c34771693668336bb4d20bdb1883585aa1",
+    "status": "AVAILABLE"
+  },
+  "donor_provenance": {
+    "canonical_sha256_per_features_manifest": "5f1e33f69b02bad86d89dcc2f67a1018cef68aaeacfbf72c310a1b7902fc268f",
+    "sha256_of_local_file_used_for_this_audit": "a9c8f76de82425a08f8242d98c41a77da634ce247e35551b61dea3e3a9aa1785",
+    "match": false,
+    "status": "NOT_VERIFIABLE",
+    "note": "data/features/windows/donor_train.parquet no esta versionado en git (excluido explicitamente en .gitignore de la base comun). El SHA del archivo local en el momento de esta auditoria NO coincide con el SHA canonico registrado en features_manifest.json. No se puede confirmar con la evidencia disponible que el checkpoint actual se entreno con exactamente el donor_train certificado como oficial por el equipo. No se ha reentrenado para resolver esta discrepancia (fuera de scope de esta auditoria, ver instrucciones: NO reentrenar automaticamente)."
+  },
+  "hyperparameters": {
+    "max_epochs": 60,
+    "kl_warmup_epochs": 15,
+    "kl_weight_max": 0.01,
+    "patience": 10,
+    "free_bits": 0.25,
+    "batch_size": 64,
+    "optimizer": "Adam",
+    "learning_rate": 0.001
+  },
+  "training_result": {
+    "epochs_completed": 21,
+    "best_epoch": 10,
+    "train_recon_final": 0.2218,
+    "val_recon_final": 0.3211,
+    "val_recon_best": "ver loss_history.npz, epoca 10",
+    "raw_history_status": "AVAILABLE (loss_history.npz, no versionado en git, gitignored)"
+  },
+  "scaler": {
+    "status": "AVAILABLE",
+    "path": "generadores/marco/evidence/scaler_stats.json",
+    "fit_dtype": "float64 (corregido -- ver README, seccion Limitaciones)",
+    "zero_variance_guard": "std == 0 -> 1e-8 (difiere del guard comun: sigma < 1e-8 -> 1.0)",
+    "zero_variance_guard_triggered": false,
+    "numerical_impact_of_discrepancy": "NINGUNO -- ningun canal tiene std < 1e-8, ambas implementaciones producen el mismo scaler en la practica"
+  }
+}
