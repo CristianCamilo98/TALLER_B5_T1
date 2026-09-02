@@ -16,6 +16,13 @@ data/features/*csv
 data/features/*parquet
 data/features/windows/*.parquet
 !data/features/window_counts.csv
+
+# Frozen derived inputs required by the common experiment.
+!data/features/test_index.parquet
+!data/features/windows/donor_train.parquet
+!data/features/windows/donor_validation.parquet
+!data/features/windows/nvda_visible.parquet
+!data/features/windows/nvda_full_history.parquet
 data/splits/*csv
 data/splits/*parquet
 !data/splits/daily_split_report.csv

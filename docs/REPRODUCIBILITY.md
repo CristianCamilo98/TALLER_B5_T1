@@ -45,13 +45,13 @@ The common window contract is 65 timesteps by 3 channels (`log_return`, `log_hig
 
 | Path | Rows | Exact size (bytes) | SHA256 | Tracked | Ignored | Required by |
 |---|---:|---:|---|---|---|---|
-| `data/features/windows/donor_train.parquet` | 4,910 | 976,450 | `5f1e33f69b02bad86d89dcc2f67a1018cef68aaeacfbf72c310a1b7902fc268f` | No | Yes | baseline, 01 contract, 02 fidelity |
-| `data/features/windows/donor_validation.parquet` | 380 | 99,234 | `134f51a2ac9e546bf1a2f21f4efbf56a62bf019a08de14209058563b0a88ae23` | No | Yes | 02 fidelity |
-| `data/features/windows/nvda_visible.parquet` | 62 | 9,406 | `0e6f046313b56b046d2e5f19d5cf0b7b8e0b81060a04620c2f5bb6a7b245f6d3` | No | Yes | 03 utility calibration and real-only reference |
-| `data/features/test_index.parquet` | 150 | 55,515 | `64fe6f4c316d3746a6c28b233a3d4dddee587851163537bab79f1400a89be2c0` | No | Yes | 03 utility held-out test |
-| `data/features/windows/nvda_full_history.parquet` | 2,703 | 206,336 | `19f651da100e6a304dda77831448d50a015e6eff5b9e019f6b3b2ffc6e908617` | No | Yes | full-history benchmark; not an input to 01/02/03 |
+| `data/features/windows/donor_train.parquet` | 4,910 | 976,450 | `5f1e33f69b02bad86d89dcc2f67a1018cef68aaeacfbf72c310a1b7902fc268f` | Yes | No | baseline, 01 contract, 02 fidelity |
+| `data/features/windows/donor_validation.parquet` | 380 | 99,234 | `134f51a2ac9e546bf1a2f21f4efbf56a62bf019a08de14209058563b0a88ae23` | Yes | No | 02 fidelity |
+| `data/features/windows/nvda_visible.parquet` | 62 | 9,406 | `0e6f046313b56b046d2e5f19d5cf0b7b8e0b81060a04620c2f5bb6a7b245f6d3` | Yes | No | 03 utility calibration and real-only reference |
+| `data/features/test_index.parquet` | 150 | 55,515 | `64fe6f4c316d3746a6c28b233a3d4dddee587851163537bab79f1400a89be2c0` | Yes | No | 03 utility held-out test |
+| `data/features/windows/nvda_full_history.parquet` | 2,703 | 206,336 | `19f651da100e6a304dda77831448d50a015e6eff5b9e019f6b3b2ffc6e908617` | Yes | No | full-history benchmark; not an input to 01/02/03 |
 
-These five runtime/benchmark Parquets total 1,346,941 bytes. They are available in the audited working snapshot but are currently ignored by Git, so they are **not present in a clean clone**. Until an approved data publication commit is made, obtain the exact files from the project snapshot and verify their SHA256 values before running the common pipeline.
+These five runtime/benchmark Parquets total 1,346,941 bytes and are tracked in their canonical paths, so they are present in a clean clone. They are frozen derived inputs, not raw OHLCV vendor data. Their complete snapshot boundary is documented in `data/CANONICAL_EXPERIMENT_DATA.md`.
 
 ### Rebuild chain and tracked evidence
 
@@ -75,7 +75,7 @@ These five runtime/benchmark Parquets total 1,346,941 bytes. They are available 
 
 The rebuild commands are documented in the root README and the READMEs under `data/`. A live yfinance download can rebuild a methodologically equivalent dataset, but vendor corrections or adjusted-price changes can alter bytes and hashes. Exact reconstruction therefore requires the certified raw snapshot, not merely network access.
 
-No data is uploaded by this documentation change. Because the five canonical runtime/benchmark Parquets are only about 1.35 MB in total, the minimum recommendation is to version those five files directly in Git in a separately approved commit. GitHub Releases, DVC, MLflow or a separate storage system are not necessary for these small runtime inputs. If exact end-to-end raw-data reconstruction is required, the 1.73 MB raw Parquet can be published separately after confirming redistribution policy.
+Only the five small canonical runtime/benchmark Parquets are versioned. Raw OHLCV, the cleaned panel, daily split assignments and daily features remain ignored. Exact end-to-end reconstruction still requires the historical raw snapshot outside Git; a new live download is not hash-stable.
 
 ## Common pipeline
 
@@ -143,18 +143,18 @@ Daniel's DDPM has tracked lightweight evidence under `generadores/daniel/evidenc
 | Read code, configs, manifests and documentation | Yes | None |
 | Inspect tracked official synthetic outputs | Yes | None |
 | Run data/common unit tests that use only fixtures | Yes | None |
-| Run the complete repository test suite | No | canonical ignored data plus generator-specific frameworks |
-| Run 01 contract and baseline | No | exact `donor_train.parquet` |
-| Run 02 fidelity | No | `donor_train`, `donor_validation`, fresh phase-01 registry and eligible outputs |
-| Run 03 utility | No | `nvda_visible`, `test_index`, fresh phase-01 registry and eligible outputs |
-| Inspect `nvda_full_history` benchmark | No | exact benchmark Parquet |
+| Run the complete repository test suite | No | generator-specific frameworks and the ignored clean/split/daily-feature snapshots used by historical certification tests |
+| Run 01 contract and baseline | Yes | tracked `donor_train`; phase 01 still enforces output eligibility |
+| Run 02 fidelity | Yes | tracked donor data, fresh phase-01 registry and eligible outputs |
+| Run 03 utility | Yes | tracked NVDA data, fresh phase-01 registry and eligible outputs |
+| Inspect `nvda_full_history` benchmark | Yes | None |
 | Rebuild the exact certified data snapshot | No | exact ignored raw snapshot; live download is not hash-stable |
 | Reproduce generator training | No | owner-specific dependencies, data and any required local checkpoint/training artifacts |
 
 ## Known limitations
 
-- The five small canonical runtime/benchmark Parquets are ignored and absent from a clean clone; publishing them is the principal remaining delivery-reproducibility blocker.
 - The exact raw snapshot is local/ignored. Network reconstruction may produce a different lineage.
+- Historical root certification tests that inspect the clean panel, daily split assignments or daily feature table still require those local ignored intermediates; common phases 01/02/03 and their tests use the five tracked canonical inputs.
 - TensorFlow and PyTorch are deliberately absent from root requirements, so a root-only environment does not run framework-specific generator tests or training.
 - Marco and David have no tracked generator-specific requirements at this revision; their active branches must close that gap without changing the root common environment.
 - Large checkpoints and redundant training pools are not versioned. Lightweight evidence and hashes are sufficient for inspecting frozen outputs, but full training/sampling replay may require owner-held artifacts.
