@@ -138,7 +138,7 @@ in [`data/CANONICAL_EXPERIMENT_DATA.md`](data/CANONICAL_EXPERIMENT_DATA.md).
 | TimeVAE | Variational autoencoder | Probabilistic temporal latent representation | [Full documentation](generadores/marco/README.md) |
 | DDPM | Diffusion | Iterative noise prediction and reverse denoising | [Full documentation](generadores/daniel/README.md) |
 | WGAN-GP | Adversarial | Generator/critic optimized with a Wasserstein objective and gradient penalty | [Full documentation](generadores/cristian/README.md) |
-| Normalizing Flow | Invertible density model | Technical description pending final individual documentation | Pending |
+| Normalizing Flow | Invertible density model | RealNVP: affine coupling blocks with learnable ActNorm and fixed permutations, exact likelihood | [Full documentation](generadores/david/README.md) |
 | Bootstrap + Jitter | Simple baseline | Whole-window bootstrap + Gaussian perturbation | [Baseline details](#bootstrap--jitter) |
 
 Each summary below covers only family, core idea, and official output; full
@@ -185,17 +185,18 @@ normalized space, validated by the phase-01 contract.
 
 ### Normalizing Flow
 
-<!-- DAVID_FINAL_README_INTEGRATION_START -->
+Normalizing Flow is a RealNVP-based invertible density model, implemented
+directly in NumPy: it learns an invertible transformation between normalized
+donor windows and a standard normal prior through 8 affine coupling blocks,
+each combining a learnable ActNorm step, a tanh-MLP conditioner, and a fixed
+inter-block permutation. Training maximizes exact likelihood — the negative
+log-likelihood with its exact log-det-Jacobian — on `donor_train`, with
+checkpoint selection by minimum `donor_validation` negative log-likelihood
+and early stopping. Generation samples directly from the standard normal
+prior and applies the inverse flow to produce 5,000 synthetic windows in the
+common normalized space.
 
-> **Pending final individual documentation**
->
-> Normalizing Flow is already included in the frozen common evaluation and
-> therefore its STRICT_FINAL comparative results are reported below.
-> Generator-specific architecture, training details and diagnostics will be
-> integrated from `generadores/david/README.md` once the final individual
-> documentation is delivered.
-
-<!-- DAVID_FINAL_README_INTEGRATION_END -->
+[Full Normalizing Flow documentation](generadores/david/README.md)
 
 ### Bootstrap + Jitter
 
@@ -441,7 +442,7 @@ notebooks/       exploratory data analysis, not part of the certified pipeline
 | TimeVAE | [`generadores/marco/README.md`](generadores/marco/README.md) | Final | Marco |
 | DDPM | [`generadores/daniel/README.md`](generadores/daniel/README.md) | Final | Daniel |
 | WGAN-GP | [`generadores/cristian/README.md`](generadores/cristian/README.md) | Final | Cristian |
-| Normalizing Flow | [`generadores/david/README.md`](generadores/david/README.md) | Pending final individual integration | David |
+| Normalizing Flow | [`generadores/david/README.md`](generadores/david/README.md) | Final | David |
 | Bootstrap + Jitter | [Baseline details](#bootstrap--jitter), [`common_pipeline/01_contract/README.md`](common_pipeline/01_contract/README.md) | Final | Common pipeline |
 
 ## Assignment Coverage
