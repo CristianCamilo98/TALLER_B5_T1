@@ -19,8 +19,8 @@ Responsable de implementación: Daniel.
 | Parámetros entrenables | 336.259 |
 | Diffusion timesteps | 100 |
 | Pool sintético oficial | 5.000 ventanas |
-| Mejor RMSE observado | 0.2446 |
-| Mejor synthetic share observado | 75% |
+| Mejor RMSE observado para DDPM | 0.2446 |
+| Mejor share observado para DDPM | 75% |
 | Mejora RMSE frente a `REAL_ONLY` | 83,47% |
 
 ## Navegación
@@ -29,7 +29,7 @@ Responsable de implementación: Daniel.
 - [DDPM y arquitectura](#concepto-ddpm)
 - [Entrenamiento y evidencia](#configuración-de-entrenamiento)
 - [Generación sintética](#generación-sintética)
-- [Fidelity y downstream utility](#fidelity--strict_final)
+- [Fidelity y downstream utility del DDPM](#fidelity--strict_final)
 - [Limitaciones](#limitaciones)
 - [Reproducibilidad y ejecución](#reproducibilidad-y-provenance)
 
@@ -240,7 +240,7 @@ El Parquet no contiene tickers ni fechas reales. Su tensor `float32` coincide ex
 
 ## Fidelity — STRICT_FINAL
 
-En fidelity, “real held-out donors” significa las **380 ventanas de `donor_validation`**, no NVDA. Cada método se compara con el mismo subconjunto de 380 ventanas sintéticas. No existe un composite score ni una clasificación global única.
+En fidelity, “real held-out donors” significa las **380 ventanas de `donor_validation`**, no NVDA. La evaluación enfrenta esas ventanas reales con un subconjunto de 380 ventanas sintéticas del DDPM. No existe un composite fidelity score: cada métrica caracteriza una propiedad distinta.
 
 | Métrica DDPM | Resultado STRICT_FINAL |
 |---|---:|
@@ -253,7 +253,7 @@ En fidelity, “real held-out donors” significa las **380 ventanas de `donor_v
 | Abs-return ACF MAE | `0.0280` |
 | Nearest-neighbour mean / median | `10.7015` / `10.7123` |
 
-El DDPM es el método más cercano al real en Wasserstein para `log_return`, Wasserstein para `log_high_low_range` y abs-return ACF MAE. No lidera todas las métricas: presenta el mayor error de correlación y la mayor distancia Wasserstein en volumen entre los métodos comparados. Fidelity y downstream utility responden a preguntas distintas.
+El C2ST ROC-AUC de `0.9070` indica que, bajo este clasificador, las ventanas DDPM siguen siendo distinguibles de `donor_validation`. Las distancias Wasserstein cuantifican diferencias marginales por canal; los errores ACF miden estructura temporal y el error de correlación resume dependencias contemporáneas entre canales. Estas métricas deben interpretarse conjuntamente, y no equivalen por sí solas a downstream utility.
 
 Fuente: [`fidelity_master.csv`](../../reports/final_analysis/fidelity_master.csv), derivado exclusivamente del snapshot STRICT_FINAL.
 
@@ -275,58 +275,44 @@ El protocolo común mantiene todo lo demás fijo:
 | 50% | 62 | `0.309301` | `0.063834` | `0.242643` | `0.068618` | `79.10%` |
 | 75% | 186 | **`0.244600`** | **`0.007319`** | **`0.179606`** | **`0.011175`** | **`83.47%`** |
 
-DDPM @75% es la **mejor configuración observada post-hoc por RMSE** en el experimento. Es una descripción del resultado congelado, no una configuración “óptima” ni una regla de selección para datos futuros.
+Dentro de los tres ratios evaluados para DDPM, el 75% obtiene el menor RMSE medio observado: `0.2446 ± 0.0073`, con una mejora del `83.47%` frente a `REAL_ONLY`. Es una descripción post-hoc del resultado congelado, no una configuración “óptima” ni una regla de selección para datos futuros.
 
-![Mejora RMSE por método y synthetic share](../../reports/final_analysis/figures/github/rmse_improvement_heatmap.png)
+![Utility downstream del DDPM por synthetic share](figures/ddpm_rmse_vs_synthetic_share.png)
 
-![Comparación de modelos al 75% sintético](../../reports/final_analysis/figures/github/performance_at_75pct.png)
+La figura representa la referencia `REAL_ONLY` sin una barra de error artificial y los tres ratios DDPM como media ±1 desviación estándar de los downstream mixture/subsampling seeds.
 
-Fuente numérica: [`master_utility_table.csv`](../../reports/final_analysis/master_utility_table.csv) y [`model_summary.csv`](../../reports/final_analysis/model_summary.csv).
-
-## DDPM frente a Bootstrap + Jitter
-
-La comparación contra el método simple forma parte del diseño experimental. Un valor positivo en la última columna indica que DDPM mejora más que Bootstrap + Jitter frente a `REAL_ONLY`.
-
-| Synthetic share | RMSE Bootstrap + Jitter | RMSE DDPM | Diferencia de mejora RMSE | Lectura |
-|---:|---:|---:|---:|---|
-| 25% | `0.285467` | `0.309787` | `-1.64 pp` | DDPM no supera al baseline simple |
-| 50% | `0.284047` | `0.309301` | `-1.71 pp` | DDPM no supera al baseline simple |
-| 75% | `0.262744` | **`0.244600`** | **`+1.23 pp`** | DDPM supera al baseline simple |
-
-![Modelos neuronales frente a Bootstrap + Jitter](../../reports/final_analysis/figures/github/neural_vs_simple_baseline.png)
-
-Fuente: [`baseline_vs_neural.csv`](../../reports/final_analysis/baseline_vs_neural.csv).
+Fuente numérica: [`master_utility_table.csv`](../../reports/final_analysis/master_utility_table.csv).
 
 ## Estabilidad de los seeds downstream
 
-![Estabilidad por seed de subsampling](../../reports/final_analysis/figures/github/seed_stability.png)
+![Estabilidad downstream del DDPM](figures/ddpm_downstream_stability.png)
 
 Los seeds representados aquí (`42`, `123`, `2026`) son **downstream mixture/subsampling seeds aplicados al mismo pool sintético oficial**, no los tres training runs de la tabla de evidencia.
 
-DDPM @50% tiene `rmse_std = 0.063834`, la dispersión más alta de todas las configuraciones del experimento. En cambio, DDPM @75% reduce la dispersión a `0.007319` y obtiene el mejor RMSE medio observado. Con sólo tres seeds, estas medidas son descriptivas, no inferenciales.
+Dentro de DDPM, el ratio 50% presenta la mayor dispersión observada entre los tres ratios evaluados (`rmse_std = 0.063834`). En cambio, DDPM @75% reduce la dispersión a `0.007319` y obtiene el menor RMSE medio del DDPM. Con sólo tres seeds, estas medidas son descriptivas, no inferenciales.
 
 Fuente: [`seed_stability.csv`](../../reports/final_analysis/seed_stability.csv).
 
 ## Hallazgos principales
 
-1. DDPM @75% obtiene el mejor RMSE global observado: `0.244600`.
-2. Esa configuración mejora el RMSE un `83.47%` frente a `REAL_ONLY`.
-3. El DDPM no supera a Bootstrap + Jitter al 25% ni al 50%; sólo lo supera al 75%.
-4. DDPM @50% presenta la mayor variabilidad downstream del experimento (`rmse_std = 0.063834`).
-5. DDPM @75% es mucho más estable (`rmse_std = 0.007319`) que sus configuraciones de menor ratio.
-6. El modelo destaca en algunas métricas de fidelity, pero no en correlación ni volumen.
-7. Una fidelity elevada en una métrica no garantiza automáticamente mejor downstream utility.
+1. El DDPM genera un pool oficial de 5.000 ventanas financieras con shape `65 × 3` a partir de los datos donantes.
+2. Los tres training runs alcanzan validation losses próximas, entre `0.5557` y `0.5574`.
+3. Entre los ratios DDPM evaluados, el 75% produce el menor RMSE medio observado: `0.2446`.
+4. Esa configuración mejora el RMSE un `83.47%` frente a `REAL_ONLY`.
+5. El ratio 50% presenta bastante más sensibilidad al subsampling que el 75%.
+6. El C2ST muestra que persisten discrepancias detectables entre el sintético DDPM y `donor_validation`.
+7. Los resultados son específicos de este target, este activo y el protocolo downstream congelado.
 
 ## Limitaciones
 
-1. El reverse diffusion utiliza 100 pasos y es computacionalmente más costoso que Bootstrap + Jitter.
+1. El reverse diffusion utiliza 100 pasos iterativos, con un coste de sampling relevante frente a procedimientos no iterativos.
 2. El denoiser es una arquitectura Conv1D compacta sin attention ni estructura multiescala.
 3. La estabilidad downstream se estima con sólo tres seeds de subsampling.
 4. La evaluación downstream utiliza una única arquitectura, `Ridge(alpha=1)`.
 5. Se estudia un único target: volatilidad realizada anualizada a cinco sesiones.
 6. La validación externa se limita a un único activo objetivo, NVDA, y a su test 2023–2025.
 7. El resultado al 75% es una observación descriptiva post-hoc, no tuning ni evidencia de optimalidad universal.
-8. DDPM no domina al baseline simple en todos los ratios: queda por detrás al 25% y al 50%.
+8. La utilidad observada es sensible al synthetic share: 25%, 50% y 75% producen resultados diferentes.
 9. Fidelity y utility no son equivalentes; ninguna métrica aislada sustenta una conclusión universal sobre generación financiera.
 
 ## Reproducibilidad y provenance
@@ -381,6 +367,14 @@ python generadores/daniel/scripts/generate_final_pools.py --seed 2026
 
 El output normalizado oficial común es [`outputs/diffusion_seed42_normalized.parquet`](outputs/diffusion_seed42_normalized.parquet) y puede inspeccionarse sin ejecutar esos comandos.
 
+### Regenerar figuras documentales
+
+Este comando sólo lee las tablas finales versionadas y reconstruye las figuras DDPM de este README. No ejecuta el DDPM ni ninguna fase de `common_pipeline`:
+
+```bash
+python generadores/daniel/scripts/build_readme_figures.py
+```
+
 ### Tests
 
 ```bash
@@ -403,6 +397,7 @@ generadores/daniel/
 ├── scripts/         # entrypoints de training, sampling y diagnósticos
 ├── tests/           # guards unitarios y de reproducibilidad
 ├── evidence/        # histories, manifests, hashes y curva de convergencia
+├── figures/         # figuras documentales exclusivas del DDPM
 ├── outputs/         # Parquet oficial normalizado seed 42
 ├── requirements.txt # dependencias específicas de PyTorch
 └── README.md        # este informe técnico
@@ -414,9 +409,10 @@ Todos los resultados cuantitativos de este documento proceden del snapshot `STRI
 
 - [`fidelity_master.csv`](../../reports/final_analysis/fidelity_master.csv)
 - [`master_utility_table.csv`](../../reports/final_analysis/master_utility_table.csv)
-- [`model_summary.csv`](../../reports/final_analysis/model_summary.csv)
 - [`seed_stability.csv`](../../reports/final_analysis/seed_stability.csv)
-- [`baseline_vs_neural.csv`](../../reports/final_analysis/baseline_vs_neural.csv)
+- [`downstream_results_raw.csv`](../../artifacts/final/strict_final_20260902/utility/tables/downstream_results_raw.csv)
 - [`ANALYSIS.md`](../../reports/final_analysis/ANALYSIS.md)
 
 No se utilizan resultados provisionales, diagnósticos individuales legacy ni métricas recalculadas para este README.
+
+Las comparaciones entre DDPM y los demás generadores se presentan en el reporting común del proyecto y, en la entrega final, en el README raíz.
