@@ -1,112 +1,145 @@
-# GAN — Cristian (WGAN-GP)
+# Generador A — WGAN-GP (Cristian)
 
-Generador adversarial de ventanas donor `[65, 3]` para el experimento NVDA sintético.
+WGAN-GP adaptado al problema de cold-start de NVDA: aprende de 10
+semiconductores donors (2012-2021) y genera ventanas sintéticas `[65, 3]`
+en el espacio normalizado de `donor_train`, para complementar los 6 meses
+reales visibles de NVDA.
 
-## Contrato
+## Arquitectura
 
+![Arquitectura](figures/arquitectura_wgan_gp.png)
 
-| Elemento      | Valor                                                                  |
-| ------------- | ---------------------------------------------------------------------- |
-| Entrada train | `data/features/windows/donor_train.parquet` (4.910 ventanas, stride 5) |
-| Validación    | `data/features/windows/donor_validation.parquet` (380 ventanas)        |
-| Canales       | `log_return`, `log_high_low_range`, `log1p_volume`                     |
-| Shape         | 65 × 3 (195 floats)                                                    |
-| Modelo        | WGAN-GP (1D Conv critic + MLP generator)                               |
-| Prohibido     | Tunear con `nvda_visible` o `test_index`                               |
+Generator: MLP `Dense(256) → Dense(512) → Dense(65×3)` → `Reshape([65, 3])`,
+activado con LeakyReLU + BatchNorm. Critic: 3×Conv1D (64/128/256) → Flatten →
+Dense(128) → score escalar (sin sigmoid). `latent_dim=100`, `n_critic=5`,
+`λ_gp=10`. Sin condicionante — el generador no ve ticker ni régimen; solo
+aprende la distribución conjunta de donors.
 
-
-## Estructura
-
-```text
-generadores/cristian/
-├── configs/wgan_gp.yaml
-├── scripts/
-│   ├── train_wgan_gp.py
-│   └── generate_synthetic.py
-├── src/
-│   ├── data.py          # carga parquets, normalización por canal
-│   ├── models.py        # generator + critic
-│   ├── wgan_gp.py       # bucle de entrenamiento
-│   ├── metrics.py       # MMD, stats, autocorrelación
-│   └── io.py            # checkpoints y parquets sintéticos
-├── notebooks/
-│   ├── 01_eda_donor_windows.ipynb
-│   ├── 02_train_wgan_gp.ipynb
-│   ├── 03_validate_synthetic.ipynb
-│   ├── 04_eval_generative.ipynb
-│   └── 05_generate_synthetic.ipynb
-├── artifacts/           # checkpoints (gitignored)
-└── outputs/             # parquets sintéticos (gitignored)
-```
+## Datos
 
 
+| Split                        | Ventanas | Uso                                                     |
+| ---------------------------- | -------- | ------------------------------------------------------- |
+| `donor_train`                | 4910     | entrenamiento WGAN-GP                                   |
+| `donor_validation`           | 380      | evaluación generativa (no se usa para early stopping)   |
+| `nvda_visible`               | 62       | NVDA "cold-start" (jul-dic 2022) — **prohibido tunear** |
+| `nvda_hidden` / full history | ~2576    | referencia de dominio distinto (diagnóstico)            |
+| `nvda_test`                  | 150      | hold-out real, tarea downstream                         |
 
-## Instalación
 
-Desde la raíz del repo (con el `.venv` del common core):
-
-```bash
-uv pip install --python .venv/bin/python -r generadores/cristian/requirements.txt
-```
-
-
+NVDA nunca entra en el entrenamiento. El scaler (media/std por canal) se ajusta
+solo sobre `donor_train`.
 
 ## Entrenamiento
 
-```bash
-cd generadores/cristian
-../../.venv/bin/python scripts/train_wgan_gp.py --seed 42 --epochs 5000
-```
+Adam lr=1e-4, `β1=0`, `β2=0.9`, batch 64, Wasserstein + gradient penalty.
+Run oficial (seed 42): **300 épocas** (índices 0..299) — no las 5000 del
+`configs/wgan_gp.yaml` (valor histórico/default). Evidencia en
+`evidence/` (`loss_history.csv`, `training_manifest.json`).
 
-Artefactos en `artifacts/seed_42/`:
+![Loss](figures/loss_wgan_gp.png)
 
-- `checkpoints/generator_epoch_*.keras`
-- `normalizer.json` (media/std por canal, solo donor_train)
-- `loss_history.csv`
-- `run_metadata.json`
+Tras el entrenamiento, las trayectorias sintéticas de `log_return` ya
+reproducen la escala y el “ruido” de las reales:
 
-
+![Muestras post-entrenamiento](figures/muestras_post_entrenamiento.png)
 
 ## Generación
 
-Genera **3 parquets** (seeds 42, 123, 2026 × 5000 ventanas cada uno):
+Se genera muestreando `z~N(0,1)` y pasando por el generator — 5000 ventanas
+por seed (`42`, `123`, `2026`). Export en dos espacios:
 
-```bash
-../../.venv/bin/python scripts/generate_synthetic.py --validate
-```
+- `outputs/synthetic_seed{SEED}_n5000_normalized.parquet` — z-score
+`donor_train` (**sin calibrar a NVDA**; esquema común de comparación)
+- `outputs/synthetic_seed{SEED}_n5000.parquet` — desnormalizado a escala
+original de canales
 
-Una seed concreta: `--seed 42`.
+Validado por el contrato común (`common_pipeline/01_contract`).
 
-Salida por seed (parquet + csv):
-- `outputs/synthetic_seed42_n5000.parquet` / `.csv` — desnormalizado (escala original)
-- `outputs/synthetic_seed42_n5000_normalized.parquet` / `.csv` — normalizado (salida del generador)
-- (idem seeds 123 y 2026)
+## Métricas de calidad
 
-Requiere `artifacts/seed_{42,123,2026}/` entrenados previamente.
+Tres comparaciones, separando “¿aprendió bien la distribución de
+entrenamiento?” (contra donors) de “¿se parece a NVDA sin calibrar?”
+(diagnóstico de dominio — no es el objetivo del generador puro):
 
-## Notebooks
+### 1) Sintético vs. `donor_train` / `donor_validation` (agregado 3 seeds)
 
-1. **01_eda_donor_windows** — distribución de canales, autocorrelación, PCA.
-2. **02_train_wgan_gp** — entrenamiento interactivo y curvas de loss.
-3. **03_validate_synthetic** — real vs sintético sobre `donor_validation`.
-4. **04_eval_generative** — t-SNE, marginales (val/train vs synth), clasificador logístico (C2ST).
-5. **05_generate_synthetic** — generar 5000 ventanas desde checkpoint (standalone).
+![Marginales](figures/dist_marginales.png)
+![t-SNE](figures/tsne_val_train_vs_sintetico.png)
+![t-SNE global](figures/tsne_global.png)
+![Clasificador ROC](figures/clasificador_roc.png)
+
+Marginales: media/std de los 3 canales del sintético casi coinciden con
+`donor_train` (`log_return` 0.0009±0.022 vs 0.0008±0.024;
+`log_high_low_range` y `log1p_volume` igual de cerca). Frente a
+`donor_validation` (2022) hay un shift de régimen esperable — validation es
+más volátil y con volumen distinto.
+
+t-SNE: solapamiento fuerte con `donor_train`; `donor_validation` forma
+nubes parcialmente separadas (año atípico), coherente con el clasificador.
+
+### 2) Vista validation-only (notebook 03)
+
+![Distribuciones donor_validation](figures/dist_donor_val_vs_sintetico.png)
+![PCA donor_validation](figures/pca_donor_val_vs_sintetico.png)
+![PCA por seed](figures/pca_por_seed.png)
+
+Las tres seeds se comportan de forma similar en PCA; ninguna es un outlier
+claro. MMD flat por seed vs validation: 0.006 (42), 0.015 (123), 0.009 (2026).
+
+### 3) Discriminative score (clasificador logístico / C2ST)
+
+AUC del clasificador two-sample (CV estratificado) y score estilo
+`|accuracy − 0.5|` para comparar con el resto de generadores:
 
 
+| Referencia                   | AUC (CV) | Acc (CV) | Disc. `|acc−0.5|` |
+| ---------------------------- | -------- | -------- | ----------------- |
+| `donor_train`                | 0.562    | 0.548    | **0.048**         |
+| `donor_validation`           | 0.906    | 0.838    | 0.338             |
+| `nvda_hidden` (sin calibrar) | 1.000    | 1.000    | 0.500             |
 
-## Referencia de clase
 
-Patrones tomados de:
+El sintético es casi indistinguible de lo que entrenó (`donor_train`, disc.
+≈ 0.05) y mucho más separable de `donor_validation` — mismo patrón que el
+VAE de Marco: 2022 ya es un año atípico en donors, no un fallo del
+generador. Contra `nvda_hidden` sin calibrar el clasificador acierta siempre
+(AUC 1.0): distinto ticker/escala; la utilidad NVDA pasa por el pipeline
+común de calibración (`common_pipeline/03_utility`).
 
-- `gan_examples/scripts_GANs/GAN_2_Simple_GAN_CIFAR10.ipynb` (clase `GAN`, Keras)
-- `gan_examples/scripts_GANs_extra/scripts_GANs_part_II/dualgan_val.py` (Wasserstein loss)
+### Autocorrelación temporal
 
-Adaptado a series temporales multicanal en lugar de imágenes.
+![Autocorrelación](figures/autocorr_multilag.png)
 
-## Seeds oficiales
+En espacio normalizado, el sintético reproduce muy bien la memoria de
+`donor_train`:
 
-Según `configs/experiment.yaml`:
 
-- Seeds: 42, 123, 2026
+| Canal                | ACF lag-1 real | ACF lag-1 sintético |
+| -------------------- | -------------- | ------------------- |
+| `log_return`         | −0.043         | −0.044              |
+| `log_high_low_range` | 0.252          | 0.257               |
+| `log1p_volume`       | 0.463          | 0.476               |
 
-Entrenar un checkpoint por seed (`train_wgan_gp.py --seed 42|123|2026`); generar los 3 parquets con `generate_synthetic.py`. Notebooks 03/04 cargan los 3 automáticamente (15000 ventanas total).
+
+## Limitaciones
+
+- **Run oficial ≠ yaml**: el output publicado sale de 300 épocas (seed 42),
+no de las 5000 listadas en `configs/wgan_gp.yaml`. Ver `evidence/`.
+- **Reproducibilidad bit-a-bit no garantizada**: generator/critic se
+construyen en `WGAN_GP.__init__()` antes de `set_random_seed()` en
+`train()` — un retrain no será idéntico byte a byte, pero no invalida
+el output ya publicado.
+- **Shift train/validation**: el clasificador separa bien validation
+(AUC ~0.91). Coherente con 2022 como régimen distinto en donors; no
+implica colapso del generador (contra train el disc. score es ~0.05).
+- **Dominio NVDA sin calibrar**: AUC 1.0 vs `nvda_hidden` es esperado —
+el generador no ve NVDA. La calibración/mezclas son fase común, no de
+este README.
+- **Valores físicos borderline**: el sintético desnormalizado puede producir
+`log_high_low_range` ligeramente negativo (min ≈ −0.014); hay que
+filtrarlo/recortarlo en el pipeline de utilidad si se exige rango ≥ 0.
+- **Provenance de** `donor_train`: el parquet local del entrenamiento y el
+canónico actual no son bytes-idénticos (diff float ~1e-6), pero
+`SAME_SCIENTIFIC_DATA` / `RETRAIN_REQUIRED=NO` (ver `evidence/README.md`).
+
