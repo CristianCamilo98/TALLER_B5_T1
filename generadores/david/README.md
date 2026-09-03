@@ -56,9 +56,8 @@ ejes de ventana y tiempo. Los canales congelados son:
 
 NVDA no se usa para entrenar el flow, escoger hiperparametros, seleccionar el
 checkpoint ni generar muestras normalizadas. La salida oficial queda en
-`outputs/bootstrap_jitter_seed42_normalized.parquet`; el nombre se conserva por
-compatibilidad con el pipeline, pero `source_model`, la provenance y el
-registro comun identifican el metodo real como `normalizing_flow`.
+`outputs/normalizing_flow_seed42_normalized.parquet`, con `source_model`, la
+provenance y el registro comun identificando el metodo como `normalizing_flow`.
 
 ## Entrenamiento
 
@@ -98,8 +97,8 @@ exporta 5.000 ventanas en el esquema comun.
 
 | Elemento | Valor |
 |---|---|
-| Output | `outputs/bootstrap_jitter_seed42_normalized.parquet` |
-| Provenance | `outputs/bootstrap_jitter_seed42_normalized.provenance.json` |
+| Output | `outputs/normalizing_flow_seed42_normalized.parquet` |
+| Provenance | `outputs/normalizing_flow_seed42_normalized.provenance.json` |
 | Shape logico | `(5000, 65, 3)` |
 | `source_model` | `normalizing_flow` |
 | Seed de training/sampling | 42 |
@@ -117,18 +116,16 @@ Ademas, David queda registrado como el metodo que satisface el rol oficial
 La fase 02 compara todos los metodos certificados contra las 380 ventanas de
 `donor_validation`, usando el mismo subconjunto de 380 muestras sinteticas por
 metodo. No hay calibracion a NVDA, clipping, reparacion ni re-normalizacion.
-La tabla siguiente corresponde a la corrida de fidelidad comun disponible en
-`common_pipeline/02_fidelity/results`; si se regenera fase 02 con el parquet
-David actualmente certificado por fase 01, los valores pueden moverse
-ligeramente porque el hash de la salida de David cambio durante la
-canonizacion final.
+La tabla siguiente corresponde a la corrida de fidelidad comun `STRICT_FINAL`,
+congelada en `artifacts/final/strict_final_20260902/` y derivada en
+`reports/final_analysis/fidelity_master.csv`.
 
 En esta tabla, un C2ST AUC mas cercano a 0.50 es mejor, y valores menores de
 Wasserstein/ACF/correlacion indican menor distancia frente a `donor_validation`.
 
 | Metodo | Familia | C2ST AUC | W1 medio | return ACF MAE | abs-return ACF MAE | corr MAE | NN mediana |
 |---|---|---:|---:|---:|---:|---:|---:|
-| David | Normalizing Flow | 0.866 | 0.360 | 0.0357 | 0.0297 | 0.064 | 9.979 |
+| David | Normalizing Flow | 0.914 | 0.396 | 0.0360 | 0.0313 | 0.052 | 9.442 |
 | Bootstrap | simple baseline | 0.897 | 0.374 | 0.0358 | 0.0326 | 0.046 | 0.696 |
 | Cristian | WGAN-GP | 0.927 | 0.370 | 0.0353 | 0.0310 | 0.054 | 9.507 |
 | Daniel | DDPM | 0.907 | 0.463 | 0.0392 | 0.0280 | 0.080 | 10.712 |
@@ -136,12 +133,15 @@ Wasserstein/ACF/correlacion indican menor distancia frente a `donor_validation`.
 
 Lectura principal:
 
-- David obtiene el mejor C2ST AUC entre los cuatro generadores oficiales, por
-  lo que es el menos distinguible por el clasificador logistico comun.
-- David tambien obtiene el mejor Wasserstein medio: 0.360 frente a 0.370 de
-  WGAN-GP, 0.463 de DDPM y 0.617 de VAE.
-- En autocorrelacion de `abs(log_return)`, David queda cerca de Daniel y por
-  delante de bootstrap, Cristian y Marco.
+- Entre los cuatro generadores oficiales, David obtiene el segundo mejor C2ST
+  AUC (0.914), por detras de Daniel (0.907) y por delante de Cristian (0.927)
+  y Marco (0.999).
+- En Wasserstein medio, David (0.396) queda por detras de WGAN-GP (0.370) y
+  del bootstrap simple (0.374), pero por delante de DDPM (0.463) y Marco
+  (0.617).
+- En autocorrelacion de `abs(log_return)`, David (0.0313) queda cerca de
+  Cristian (0.0310) y Daniel (0.0280), por delante de bootstrap (0.0326) y
+  Marco (0.0424).
 - En correlaciones entre canales, David no es el mejor: bootstrap y Marco
   tienen menor error medio, aunque bootstrap esta extremadamente cerca de
   ventanas de entrenamiento (`NN mediana=0.696`), senal de baja novedad.
@@ -153,16 +153,15 @@ de los regimenes mas extremos de `donor_validation` 2022.
 
 ## Utilidad y comparacion con benchmarks
 
-La tabla comun de fase 03 versionada actualmente contiene Cristian, Daniel y
-Marco, pero no incluye todavia la salida oficial `normalizing_flow` de David.
-Por tanto, no hay que presentar un RMSE downstream oficial de David como si ya
-formara parte de la corrida final comun.
+La evaluacion comun de fase 03 `STRICT_FINAL` ya incluye la salida oficial
+`normalizing_flow` de David junto con el resto de metodos certificados.
 
 Benchmarks comunes disponibles en la tarea Ridge con 75% de sintetico:
 
 | Metodo comun | Mejor ratio | RMSE medio | MAE medio | Mejora RMSE vs real-only |
 |---|---:|---:|---:|---:|
 | Daniel DDPM | 0.75 | 0.2446 | 0.1796 | -83.47% |
+| David Normalizing Flow | 0.75 | 0.2529 | 0.1740 | -82.91% |
 | Cristian WGAN-GP | 0.75 | 0.2537 | 0.1822 | -82.86% |
 | Marco VAE | 0.75 | 0.3509 | 0.2526 | -76.28% |
 | Real-only | 0.00 | 1.4796 | 1.1469 | 0.00% |
@@ -224,16 +223,13 @@ La ruta de trabajo fue iterativa:
 - El espacio es de 195 dimensiones y solo hay 4.910 ventanas de entrenamiento;
   la brecha entre NLL de train y validacion aparece pronto. Early stopping es
   imprescindible.
-- El C2ST de David mejora al resto de generadores oficiales, pero 0.866 sigue
-  lejos de 0.50. El sintetico no es indistinguible de `donor_validation`.
+- El C2ST de David (0.914) sigue lejos de 0.50: el sintetico no es
+  indistinguible de `donor_validation`.
 - La correlacion entre canales no es la metrica donde David domina; su ventaja
   aparece mas en marginales globales, Wasserstein y C2ST.
 - Los resultados de utilidad local de `temporal_jitter_*` no deben confundirse
   con la salida oficial. Sirven para explicar decisiones, no para certificar el
   Normalizing Flow en fase 03.
-- El nombre del parquet oficial contiene `bootstrap_jitter` por compatibilidad
-  historica. La identidad cientifica correcta se debe leer desde `source_model`
-  y desde la provenance.
 
 ## Reproducibilidad
 
@@ -260,5 +256,5 @@ Artefactos principales:
 - `artifacts/loss_history.csv`
 - `artifacts/training_manifest_seed42.json`
 - `artifacts/normalizing_flow_convergence.png`
-- `outputs/bootstrap_jitter_seed42_normalized.parquet`
-- `outputs/bootstrap_jitter_seed42_normalized.provenance.json`
+- `outputs/normalizing_flow_seed42_normalized.parquet`
+- `outputs/normalizing_flow_seed42_normalized.provenance.json`
