@@ -17,6 +17,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.metrics import roc_curve
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -396,6 +397,60 @@ def build_c2st_figure(real: np.ndarray, synthetic: np.ndarray) -> tuple[float, f
     return result.roc_auc, frozen_auc
 
 
+def build_c2st_roc_figure(real: np.ndarray, synthetic: np.ndarray) -> tuple[float, float]:
+    result, frozen_auc = _frozen_c2st(real, synthetic)
+    false_positive_rate, true_positive_rate, _ = roc_curve(
+        result.labels,
+        result.probabilities,
+        pos_label=1,
+    )
+
+    fig, axis = plt.subplots(figsize=(8.8, 5.2))
+    axis.plot(
+        false_positive_rate,
+        true_positive_rate,
+        color=TEAL,
+        linewidth=2.6,
+        label=f"DDPM vs real — AUC = {result.roc_auc:.3f}",
+    )
+    axis.plot(
+        [0.0, 1.0],
+        [0.0, 1.0],
+        color=GRAY,
+        linewidth=1.5,
+        linestyle="--",
+        label="Random — AUC = 0.500",
+    )
+    axis.set_xlim(0.0, 1.0)
+    axis.set_ylim(0.0, 1.02)
+    axis.set_xlabel("False Positive Rate")
+    axis.set_ylabel("True Positive Rate")
+    axis.grid(color=GRID, linewidth=0.7)
+    axis.set_axisbelow(True)
+    axis.spines[["top", "right"]].set_visible(False)
+    axis.legend(frameon=False, loc="lower right")
+    fig.suptitle("DDPM — C2ST ROC", fontsize=17, color=NAVY, y=0.98)
+    fig.text(
+        0.5,
+        0.90,
+        "Held-out real donors vs DDPM synthetic · 5-fold OOF",
+        ha="center",
+        color=GRAY,
+        fontsize=10.5,
+    )
+    fig.text(
+        0.5,
+        0.025,
+        "AUC closer to 0.5 means real and synthetic are harder to distinguish.",
+        ha="center",
+        color=GRAY,
+        fontsize=9,
+    )
+    fig.subplots_adjust(top=0.82, bottom=0.17, left=0.11, right=0.97)
+    _save(fig, "ddpm_c2st_roc")
+    return result.roc_auc, frozen_auc
+
+
 def build_acf_figure() -> tuple[float, float]:
     return_source = FIDELITY_TABLES / "return_acf.csv"
     absolute_source = FIDELITY_TABLES / "abs_return_acf.csv"
@@ -604,6 +659,9 @@ def main() -> None:
     build_marginal_figure(real, synthetic)
     build_tsne_figure()
     reproduced_auc, frozen_auc = build_c2st_figure(real, synthetic)
+    roc_auc, roc_frozen_auc = build_c2st_roc_figure(real, synthetic)
+    if reproduced_auc != roc_auc or frozen_auc != roc_frozen_auc:
+        raise RuntimeError("C2ST confusion-matrix and ROC guards disagree")
     return_mae, absolute_mae = build_acf_figure()
     print(f"Wrote DDPM README figures to {OUTPUT_DIR.relative_to(REPO_ROOT)}")
     print(
