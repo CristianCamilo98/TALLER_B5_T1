@@ -166,6 +166,11 @@ Benchmarks comunes disponibles en la tarea Ridge con 75% de sintetico:
 | Marco VAE | 0.75 | 0.3509 | 0.2526 | -76.28% |
 | Real-only | 0.00 | 1.4796 | 1.1469 | 0.00% |
 
+La corrida de David a 75% de sintetico es estable entre seeds:
+`rmse_std=0.005743` (`reports/final_analysis/master_utility_table.csv`),
+la tercera desviacion mas baja de los cinco metodos evaluados, solo por
+detras de Marco y del bootstrap simple.
+
 Antes de cerrar el rol oficial como Normalizing Flow, se hicieron experimentos
 locales de utilidad con familias alternativas. Esos resultados no son el
 entregable oficial, pero si explican la evolucion metodologica de David:
