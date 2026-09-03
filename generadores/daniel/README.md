@@ -257,6 +257,34 @@ El C2ST ROC-AUC de `0.9070` indica que, bajo este clasificador, las ventanas DDP
 
 Fuente: [`fidelity_master.csv`](../../reports/final_analysis/fidelity_master.csv), derivado exclusivamente del snapshot STRICT_FINAL.
 
+### Diagnósticos visuales de fidelity
+
+Todas las figuras de esta subsección comparan exclusivamente el DDPM con **held-out real donors** (`donor_validation`). No comparan generadores entre sí. Los 380 ejemplos sintéticos son exactamente las posiciones fijadas en el evaluation subset de `STRICT_FINAL`.
+
+#### Marginal distributions
+
+![Distribuciones marginales del DDPM frente a held-out real donors](figures/ddpm_marginal_distributions.png)
+
+Los histogramas utilizan todos los valores de los tres canales, sin clipping ni retirada de outliers. El DDPM reproduce parte de la masa central, pero genera distribuciones más concentradas; la diferencia es especialmente visible en `log_high_low_range` y `log1p_volume`. Las colas y la dispersión observadas en los donors no quedan reproducidas por completo.
+
+#### t-SNE diagnostic
+
+![Proyección t-SNE congelada del DDPM frente a held-out real donors](figures/ddpm_tsne_fidelity.png)
+
+La figura filtra únicamente ambas clases dentro de las coordenadas conjuntas ya publicadas por el pipeline común; el embedding no se recalcula. La proyección muestra regiones diferenciadas y cierto solapamiento, pero t-SNE es un diagnóstico cualitativo y no constituye una métrica ni una prueba aislada de fidelity.
+
+#### C2ST diagnostic
+
+![Matriz de confusión C2ST del DDPM frente a held-out real donors](figures/ddpm_c2st_confusion_matrix.png)
+
+La matriz usa predicciones **5-fold out-of-fold** del mismo `StandardScaler + LogisticRegression` congelado. El ROC-AUC reproducido (`0.9070`) coincide con `STRICT_FINAL` e indica que el clasificador distingue bastante bien ambos conjuntos; por tanto, el DDPM no reproduce perfectamente la distribución de `donor_validation`. Los counts y porcentajes describen el clasificador, no un score global de calidad generativa.
+
+#### Temporal dependence
+
+![ACF temporal del DDPM frente a held-out real donors](figures/ddpm_temporal_acf.png)
+
+Los dos paneles muestran la ACF media calculada dentro de cada ventana para returns y absolute returns, en los lags 1–20. Las curvas DDPM son más suaves y permanecen cerca de cero en buena parte del rango, mientras que la referencia real fluctúa más entre lags. Los MAE congelados son `0.0392` para return ACF y `0.0280` para abs-return ACF.
+
 ## Downstream utility — STRICT_FINAL
 
 El protocolo común mantiene todo lo demás fijo:
@@ -369,7 +397,7 @@ El output normalizado oficial común es [`outputs/diffusion_seed42_normalized.pa
 
 ### Regenerar figuras documentales
 
-Este comando sólo lee las tablas finales versionadas y reconstruye las figuras DDPM de este README. No ejecuta el DDPM ni ninguna fase de `common_pipeline`:
+Este comando lee únicamente los inputs y las tablas finales congeladas y reconstruye las figuras DDPM de este README. Para la matriz C2ST reproduce en memoria las predicciones OOF con la primitiva común y exige que el ROC-AUC coincida con `STRICT_FINAL`; no guarda nuevas tablas, no ejecuta el DDPM ni lanza ninguna fase de `common_pipeline`:
 
 ```bash
 python generadores/daniel/scripts/build_readme_figures.py
